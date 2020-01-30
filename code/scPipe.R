@@ -110,14 +110,10 @@ gene_id_type <- "ensembl_gene_id"
 # Input files ------------------------------------------------------------------
 
 # FASTQ files
-r1_fq <- grep(
-  pattern = "Undetermined",
-  x = list.files(
+r1_fq <- list.files(
     path = here("extdata", "NN179"),
     full.names = TRUE,
-    pattern = glob2rx("*R1.fastq.gz")),
-  invert = TRUE,
-  value = TRUE)
+    pattern = glob2rx("*R1.fastq.gz"))
 
 r2_fq <- gsub("R1", "R2", r1_fq)
 stopifnot(all(file.exists(r2_fq)))
@@ -131,12 +127,15 @@ barcode_fq <- gsub("R2", "R1", tx_fq)
 #       the agenda for the SCORE meeting on 2020-01-31.
 mclapply(plates, function(plate) {
   message(plate)
-  rpi <- sub(
-    " ",
-    "-",
-    unique(
-      sample_sheet[sample_sheet$plate_number == plate,
-                   "illumina_index_index_number_separate_index_read"]))
+  # NOTe: We're using the undetermined reads in the hope that many of these are
+  #       in fact from RPI-10.
+  rpi <- "Undetermined"
+  # rpi <- sub(
+  #   " ",
+  #   "-",
+  #   unique(
+  #     sample_sheet[sample_sheet$plate_number == plate,
+  #                  "illumina_index_index_number_separate_index_read"]))
   cmd <- paste0(
     "cat ",
     grep(rpi, r1_fq, value = TRUE),
