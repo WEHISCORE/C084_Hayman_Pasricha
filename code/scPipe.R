@@ -1,6 +1,6 @@
-# Process NN179 (C084) with scPipe
+# Process NN179 and NN183 (C084) with scPipe
 # Peter Hickey
-# 2020-01-29
+# 2020-02-24
 
 # Setup ------------------------------------------------------------------------
 
@@ -74,9 +74,70 @@ sample_sheet_nn179 <- sample_sheet_nn179 %>%
     sequencing_run = "NN179") %>%
   arrange(plate_number, well_position)
 
+# Construct NN183 sample sheet -------------------------------------------------
+
+file_nn183 <- here(
+  "data",
+  "sample_sheets",
+  "C084_NN183_primer layout_Feb2020.xlsx")
+
+# NOTE: Header row is split across 2 lines, which I combine into 1 before
+#       reading in the rest of the spreadsheet.
+header_row <- read_excel(
+  path = file_nn183,
+  sheet = "Sample & Index",
+  skip = 2,
+  n_max = 1)
+
+header_row <- paste0(colnames(header_row), header_row[1, ])
+header_row <- gsub("^\\.\\.\\.[0-9]+", "", header_row)
+sample_sheet_nn183 <- read_excel(
+  path = file_nn183,
+  sheet = "Sample & Index",
+  skip = 4,
+  col_names = header_row,
+  # NOTE: Setting the max guess_max value avoids problems with incorrectly
+  #       guessed columns
+  #       (https://github.com/tidyverse/readxl/issues/414#issuecomment-352437730)
+  guess_max = 1048576)
+# Tidy up names
+sample_sheet_nn183 <- clean_names(sample_sheet_nn183)
+# Remove empty rows/columns.
+sample_sheet_nn183 <- remove_empty(sample_sheet_nn183)
+
+# Filter out those empty wells.
+sample_sheet_nn183 <- sample_sheet_nn183 %>%
+  filter(sample_name != "empty")
+
+# Some final tidying.
+sample_sheet_nn183 <- sample_sheet_nn183 %>%
+  mutate(
+    # NOTE: Some wacky whitespace characters in the plate number
+    plate_number = gsub(
+      "[\\h\\v]",
+      "_",
+      trimws(plate_number, whitespace = "[\\h\\v]"),
+      perl = TRUE),
+    # NOTE: There are some wonky well_positions (e.g., 'I19=A1') that need to
+    #       be fixed (these occur because it means well I19 with primer A1,
+    #       in SCORE's terminology. I've asked for this to be avoided going
+    #       forward.).
+    well_position = gsub(" ", "", well_position),
+    well_position = sapply(strsplit(well_position, "="), "[[", 1),
+    well_position = factor(
+      x = well_position,
+      levels = unlist(
+        lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
+        use.names = TRUE)),
+    # NOTE: There are some wonky RPIs
+    illumina_index_index_number_separate_index_read = trimws(
+      illumina_index_index_number_separate_index_read),
+    sequencing_run = "NN183") %>%
+  arrange(plate_number, well_position)
+
 # Construct final sample sheet -------------------------------------------------
 
-sample_sheet <- sample_sheet_nn179 %>%
+sample_sheet <- full_join(sample_sheet_nn179, sample_sheet_nn183) %>%
   mutate(rowname = paste0(plate_number, "_", well_position)) %>%
   tibble::column_to_rownames("rowname") %>%
   DataFrame(., check.names = FALSE)
@@ -110,14 +171,23 @@ gene_id_type <- "ensembl_gene_id"
 # Input files ------------------------------------------------------------------
 
 # FASTQ files
-r1_fq <- grep(
-  pattern = "Undetermined",
-  x = list.files(
-    path = here("extdata", "NN179"),
-    full.names = TRUE,
-    pattern = glob2rx("*R1.fastq.gz")),
-  invert = TRUE,
-  value = TRUE)
+r1_fq <- c(
+  grep(
+    pattern = "Undetermined",
+    x = list.files(
+      path = here("extdata", "NN179"),
+      full.names = TRUE,
+      pattern = glob2rx("*R1.fastq.gz")),
+    invert = TRUE,
+    value = TRUE),
+  grep(
+    pattern = "Undetermined",
+    x = list.files(
+      path = here("extdata", "NN183", "merged"),
+      full.names = TRUE,
+      pattern = glob2rx("*R1.fastq.gz")),
+    invert = TRUE,
+    value = TRUE))
 
 r2_fq <- gsub("R1", "R2", r1_fq)
 stopifnot(all(file.exists(r2_fq)))
@@ -127,26 +197,50 @@ names(tx_fq) <- plates
 barcode_fq <- gsub("R2", "R1", tx_fq)
 
 # Concatenate FASTQ files at the plate-level.
-# TODO: Wiill need to re-sequence these samples due to low yield. This is on
-#       the agenda for the SCORE meeting on 2020-01-31.
 mclapply(plates, function(plate) {
   message(plate)
-  rpi <- sub(
-    " ",
-    "-",
-    unique(
-      sample_sheet[sample_sheet$plate_number == plate,
-                   "illumina_index_index_number_separate_index_read"]))
-  cmd <- paste0(
-    "cat ",
-    grep(rpi, r1_fq, value = TRUE),
-    " > ",
-    barcode_fq[[plate]],
-    "\n",
-    "cat ",
-    grep(rpi, r2_fq, value = TRUE),
-    " > ",
-    tx_fq[[plate]])
+  sequencing_run <- unique(
+    sample_sheet[sample_sheet$plate_number == plate, "sequencing_run"])
+  if (sequencing_run == "NN179") {
+    rpi <- sub(
+      " ",
+      "-",
+      unique(
+        sample_sheet[sample_sheet$plate_number == plate,
+                     "illumina_index_index_number_separate_index_read"]))
+    cmd <- paste0(
+      "cat ",
+      grep(rpi, r1_fq, value = TRUE),
+      " > ",
+      barcode_fq[[plate]],
+      "\n",
+      "cat ",
+      grep(rpi, r2_fq, value = TRUE),
+      " > ",
+      tx_fq[[plate]])
+  } else if (sequencing_run == "NN183") {
+    rpi <- paste0(
+      trimws(
+        sub(
+          "RPI",
+          "",
+          unique(
+            sample_sheet[sample_sheet$plate_number == plate,
+                         "illumina_index_index_number_separate_index_read"]),
+          perl = TRUE),
+        whitespace = "[\\h\\v]"),
+      "_S")
+    cmd <- paste0(
+      "cat ",
+      grep(sequencing_run, grep(rpi, r1_fq, value = TRUE), value = TRUE),
+      " > ",
+      barcode_fq[[plate]],
+      "\n",
+      "cat ",
+      grep(sequencing_run, grep(rpi, r2_fq, value = TRUE), value = TRUE),
+      " > ",
+      tx_fq[[plate]])
+  }
   system(cmd)
 })
 
