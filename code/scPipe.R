@@ -71,6 +71,12 @@ sample_sheet_nn179 <- sample_sheet_nn179 %>%
       levels = unlist(
         lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
         use.names = TRUE)),
+    well_position_in_original_dilution_layout = factor(
+      x = cell_type_descriptor,
+      levels = unlist(
+        lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
+        use.names = TRUE)),
+    cell_type_descriptor = NULL,
     sequencing_run = "NN179") %>%
   arrange(plate_number, well_position)
 
@@ -129,16 +135,70 @@ sample_sheet_nn183 <- sample_sheet_nn183 %>%
       levels = unlist(
         lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
         use.names = TRUE)),
+    well_position_in_original_dilution_layout = factor(
+      x = cell_type_descriptor_from_original_dilution_layout,
+      levels = unlist(
+        lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
+        use.names = TRUE)),
+    cell_type_descriptor_from_original_dilution_layout = NULL,
     # NOTE: There are some wonky RPIs
     illumina_index_index_number_separate_index_read = trimws(
       illumina_index_index_number_separate_index_read),
     sequencing_run = "NN183") %>%
   arrange(plate_number, well_position)
 
+# Construct sample metadata ----------------------------------------------------
+
+metadata_xls <- here(
+  "data", "sample_sheets", "ZIPT SAMPLE LIST WITH PLATE LOCATIONS.xlsx")
+
+baseline_tbl <- read_excel(metadata_xls, range = "B3:K100")
+colnames(baseline_tbl) <- paste0(
+  colnames(baseline_tbl),
+  ifelse(is.na(baseline_tbl[1, ]), "", baseline_tbl[1, ]))
+colnames(baseline_tbl) <- gsub("^\\.\\.\\.[0-9]+", "", colnames(baseline_tbl))
+baseline_tbl <- baseline_tbl[-1, ]
+baseline_tbl <- clean_names(baseline_tbl)
+colnames(baseline_tbl) <- sub("cy_tof", "cytof", colnames(baseline_tbl))
+baseline_tbl$timepoint <- factor("baseline", levels = c("baseline", "endline"))
+
+endline_tbl <- read_excel(metadata_xls, range = "O3:X104")
+colnames(endline_tbl) <- paste0(
+  colnames(endline_tbl),
+  ifelse(is.na(endline_tbl[1, ]), "", endline_tbl[1, ]))
+colnames(endline_tbl) <- gsub("^\\.\\.\\.[0-9]+", "", colnames(endline_tbl))
+endline_tbl <- endline_tbl[-1, ]
+endline_tbl <- clean_names(endline_tbl)
+colnames(endline_tbl) <- sub("cy_tof", "cytof", colnames(endline_tbl))
+endline_tbl$timepoint <- factor("endline", levels = c("baseline", "endline"))
+
+metadata_tbl <- rbind(baseline_tbl, endline_tbl) %>%
+  mutate(
+    collection_date = as.Date(collection_date, tryFormats = c("%d.%m.%Y")),
+    sample_serum = ifelse(sample_serum == "√", TRUE, FALSE),
+    rna = ifelse(rna == "√", TRUE, FALSE),
+    cytof_1 = ifelse(cytof_1 == "√", TRUE, FALSE),
+    cytof_2 = ifelse(cytof_2 == "√", TRUE, FALSE))
+
 # Construct final sample sheet -------------------------------------------------
 
-sample_sheet <- full_join(sample_sheet_nn179, sample_sheet_nn183) %>%
-  mutate(rowname = paste0(plate_number, "_", well_position)) %>%
+sample_sheet <- rbind(sample_sheet_nn179, sample_sheet_nn183) %>%
+  inner_join(
+    metadata_tbl,
+    by = c("well_position_in_original_dilution_layout" = "plate_location")) %>%
+  mutate(
+    well_position = factor(
+      x = well_position,
+      levels = unlist(
+        lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
+        use.names = TRUE)),
+    well_position_in_original_dilution_layout = factor(
+      x = well_position_in_original_dilution_layout,
+      levels = unlist(
+        lapply(LETTERS[1:16], function(x) paste0(x, 1:24)),
+        use.names = TRUE)),
+    rowname = paste0(plate_number, "_", well_position)) %>%
+  arrange(sequencing_run, plate_number, well_position) %>%
   tibble::column_to_rownames("rowname") %>%
   DataFrame(., check.names = FALSE)
 
@@ -476,9 +536,3 @@ saveRDS(
   no_dedup_sce,
   file.path(outdir, "C084_Hayman_Pasricha.not_UMI_deduped.scPipe.SCE.rds"),
   compress = "xz")
-
-# TODOs ------------------------------------------------------------------------
-
-# - [ ] There isn't much metadata for these samples, except for the
-#       `cell_type_descriptor`. Presumably that ID links up to a database of
-#       samples. At what point will we do this database join?
