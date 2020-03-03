@@ -22,7 +22,7 @@ library(BiocStyle)
 library(ggplot2)
 library(cowplot)
 source(here("code", "helper_functions.R"))
-# NOTE: Using >= 4 cores siezes up my laptop. Can use more on RStudio server.
+# NOTE: Using >= 4 cores seizes up my laptop. Can use more on RStudio server.
 options(
   "mc.cores" = ifelse(gsub("^rstudio-[0-9]+", "", Sys.info()[["nodename"]]) ==
                         ".hpc.wehi.edu.au", 8L, 2L))
@@ -127,6 +127,7 @@ paged_table(.adf(colData(sce)))
 
 ```{r}
 library(AnnotationHub)
+library(ensembldb)
 ah <- AnnotationHub()
 EnsDb.Hsapiens.v94 <- ah[["AH64923"]]
 ensembl <- gsub("\\.[0-9]+$", "", rownames(sce))
@@ -448,7 +449,99 @@ plotHighestExprs(sce, n = 50)
 ```
 
 ```{r, fig.asp = 1}
-plotHighestExprs(sce[!grepl("^MT|^RPS|^RPL", rownames(sce)), ], n = 50)
+plotHighestExprs(
+  sce[, sce$group == "A" & sce$timepoint == "baseline"],
+  n = 50) +
+  ggtitle("A.baseline")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[, sce$group == "A" & sce$timepoint == "endline"],
+  n = 50) +
+  ggtitle("A.endline")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[, sce$group == "B" & sce$timepoint == "baseline"],
+  n = 50) +
+  ggtitle("B.baseline")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[, sce$group == "B" & sce$timepoint == "endline"],
+  n = 50) +
+  ggtitle("B.endline")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[, sce$group == "C" & sce$timepoint == "baseline"],
+  n = 50) +
+  ggtitle("C.baseline")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[, sce$group == "C" & sce$timepoint == "endline"],
+  n = 50) +
+  ggtitle("C.endline")
+```
+
+
+```{r, fig.asp = 1}
+plotHighestExprs(sce[!grepl("^MT|^RPS|^RPL", rownames(sce)), ], n = 50) +
+  ggtitle("Excluding mitochondrial and ribosomal protein genes")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
+      sce$group == "A" & sce$timepoint == "baseline"],
+  n = 50) +
+  ggtitle("A.baseline: Excluding mitochondrial and ribosomal protein genes")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
+      sce$group == "A" & sce$timepoint == "endline"],
+  n = 50) +
+  ggtitle("A.endline: Excluding mitochondrial and ribosomal protein genes")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
+      sce$group == "B" & sce$timepoint == "baseline"],
+  n = 50) +
+  ggtitle("B.baseline: Excluding mitochondrial and ribosomal protein genes")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
+      sce$group == "B" & sce$timepoint == "endline"],
+  n = 50) +
+  ggtitle("B.endline: Excluding mitochondrial and ribosomal protein genes")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
+      sce$group == "C" & sce$timepoint == "baseline"],
+  n = 50) +
+  ggtitle("C.baseline: Excluding mitochondrial and ribosomal protein genes")
+```
+
+```{r, fig.asp = 1}
+plotHighestExprs(
+  sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
+      sce$group == "C" & sce$timepoint == "endline"],
+  n = 50) +
+  ggtitle("C.endline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ## Filtering out low-abundance genes
@@ -461,7 +554,7 @@ hist(
   breaks = 100, 
   main = "", 
   col = "grey",
-  xlab = expression(Log[10] ~ "average count"))
+  xlab = expression(Log[10] ~ "Cverage count"))
 to_keep <- ave_counts > 0
 sce <- sce[to_keep, ]
 ```
@@ -471,6 +564,8 @@ Such genes provide no information and would be removed by any filtering strategy
 We retain `r sum(to_keep)` for downstream analysis.
 
 # Normalization of cell-specific biases
+
+**TODO:** Try other size factors (e.g., `edgeR::calcNormFactors()`)
 
 ## Using the deconvolution method to deal with zero counts
 
@@ -519,9 +614,9 @@ sizeFactors(altExp(sce)) <- librarySizeFactors(altExp(sce))
 Here, we will treat each plate as a 'batch', i.e. `r nlevels(sce$plate_number)` batches in total.
 
 ```{r}
-sce$batch <- sce$plate_number
 # NOTE: Can reuse plate colours
 batch_colours <- plate_number_colours
+sce$batch <- factor(sce$plate_number)
 ```
 
 # Feature selection
@@ -562,7 +657,7 @@ for (i in seq_len(ncol(blocked_stats))) {
 }
 ```
 
-```{r trendplots-fits, fig.cap = "An overlay of the trend fits from the previous figure, highlighting the need for the batch-specific trend fits. Each line is a the trend line for a particular batch (with colours matching the previous plot).", results = "hide", fig.asp = 1}
+```{r trendplots-fits, fig.cap = "Cn overlay of the trend fits from the previous figure, highlighting the need for the batch-specific trend fits. Each line is a the trend line for a particular batch (with colours matching the previous plot).", results = "hide", fig.asp = 1}
 par(mfrow = c(1, 1))
 # NOTE: 'Fake' plot with right dimensions to overlay trends.
 plot(
@@ -618,15 +713,16 @@ This retains `r ncol(reducedDim(sce, "PCA"))` dimensions.
 
 # Batch correction with MNN
 
+**TODO:** Try MNN
+
 ## Algorithm overview
 
 ## Application
 
-
 ```{r, results = "hide", eval = FALSE}
 library(batchelor)
 mnn_out <- fastMNN(
-  multiBatchNorm(sce, batch = sce$plate_number),
+  multiBatchNorm(sce, batch = factor(sce$plate_number)),
   batch = sce$plate_number,
   cos.norm = FALSE,
   d = ncol(reducedDim(sce, "PCA")),
@@ -759,7 +855,7 @@ rmarkdown::paged_table(as.data.frame(topTags(qlf_A, n = Inf, p.value = 0.05)))
 
 ```{r}
 tt_A <- topTags(qlf_A, n = Inf, p.value = 0.05)
-pdf(here("output", "figures", "A.endline_vs_baseline.pdf"))
+pdf(here("output", "figures", "C.endline_vs_baseline.pdf"))
 for (i in seq_len(nrow(tt_A))) {
   message(i)
   g <- rownames(tt_A)[i]
@@ -971,3 +1067,7 @@ plotHeatmap(
 ## Glimma
 
 **TODO:** Glimma MDS and MA plots
+
+# TODO
+
+- [ ] Pairwise plots of logcounts for each sample to compare the two batches
