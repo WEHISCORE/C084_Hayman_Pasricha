@@ -21,6 +21,8 @@ library(janitor)
 library(BiocStyle)
 library(ggplot2)
 library(cowplot)
+library(Hmisc)
+
 source(here("code", "helper_functions.R"))
 # NOTE: Using >= 4 cores seizes up my laptop. Can use more on RStudio server.
 options(
@@ -849,6 +851,9 @@ my_contrasts <- makeContrasts(
   high_zinc_low_iron_mnp.endline_vs_baseline = 
     high_zinc_low_iron_mnp.endline - 
     high_zinc_low_iron_mnp.baseline,
+  endline.zinc_10mg_tab_vs_placebo = zinc_10mg_tab.endline - placebo.endline,
+  endline.high_zinc_low_iron_mnp_vs_placebo = high_zinc_low_iron_mnp.endline -
+    placebo.endline,
   levels = design)
 ```
 
@@ -959,6 +964,88 @@ for (i in seq_len(nrow(tt_high_zinc_low_iron_mnp))) {
         g,
         " (FDR = ", 
         signif(tt_high_zinc_low_iron_mnp[g, "FDR"][[1]], 1),
+        ")")) +
+    stat_summary(
+      fun.data = "mean_cl_boot",
+      geom = "crossbar",
+      colour = "red",
+      width = 0.3) + 
+    cowplot::theme_cowplot() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      strip.background = element_blank(),
+      strip.text.x = element_blank())
+  print(p)
+}
+dev.off()
+```
+
+## endline.zinc_10mg_tab_vs_placebo
+
+```{r}
+qlf_endline.zinc_10mg_tab_vs_placebo <- glmQLFTest(fit, contrast = my_contrasts[, "endline.zinc_10mg_tab_vs_placebo"])
+summary(decideTests(qlf_endline.zinc_10mg_tab_vs_placebo))
+rmarkdown::paged_table(as.data.frame(topTags(qlf_endline.zinc_10mg_tab_vs_placebo, n = Inf, p.value = 0.05)))
+```
+
+```{r}
+tt_endline.zinc_10mg_tab_vs_placebo <- topTags(qlf_endline.zinc_10mg_tab_vs_placebo, n = Inf, p.value = 0.05)
+pdf(here("output", "figures", "endline.zinc_10mg_tab_vs_placebo.pdf"))
+for (i in seq_len(nrow(tt_endline.zinc_10mg_tab_vs_placebo))) {
+  message(i)
+  g <- rownames(tt_endline.zinc_10mg_tab_vs_placebo)[i]
+  p <- plotExpression(
+    sce,
+    g,
+    x = I(paste0(sce$regimen, ".", sce$timepoint)), colour_by = "timepoint",
+    other_fields = "plate_number") + 
+    facet_grid(~ plate_number) +
+    ggtitle(
+      paste0(
+        g,
+        " (FDR = ", 
+        signif(tt_endline.zinc_10mg_tab_vs_placebo[g, "FDR"][[1]], 1),
+        ")")) +
+    stat_summary(
+      fun.data = "mean_cl_boot",
+      geom = "crossbar",
+      colour = "red",
+      width = 0.3) + 
+    cowplot::theme_cowplot() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      strip.background = element_blank(),
+      strip.text.x = element_blank())
+  print(p)
+}
+dev.off()
+```
+
+## endline.high_zinc_low_iron_mnp_vs_placebo
+
+```{r}
+qlf_endline.high_zinc_low_iron_mnp_vs_placebo <- glmQLFTest(fit, contrast = my_contrasts[, "endline.high_zinc_low_iron_mnp_vs_placebo"])
+summary(decideTests(qlf_endline.high_zinc_low_iron_mnp_vs_placebo))
+rmarkdown::paged_table(as.data.frame(topTags(qlf_endline.high_zinc_low_iron_mnp_vs_placebo, n = Inf, p.value = 0.05)))
+```
+
+```{r}
+tt_endline.high_zinc_low_iron_mnp_vs_placebo <- topTags(qlf_endline.high_zinc_low_iron_mnp_vs_placebo, n = Inf, p.value = 0.05)
+pdf(here("output", "figures", "endline.high_zinc_low_iron_mnp_vs_placebo.pdf"))
+for (i in seq_len(nrow(tt_endline.high_zinc_low_iron_mnp_vs_placebo))) {
+  message(i)
+  g <- rownames(tt_endline.high_zinc_low_iron_mnp_vs_placebo)[i]
+  p <- plotExpression(
+    sce,
+    g,
+    x = I(paste0(sce$regimen, ".", sce$timepoint)), colour_by = "timepoint",
+    other_fields = "plate_number") + 
+    facet_grid(~ plate_number) +
+    ggtitle(
+      paste0(
+        g,
+        " (FDR = ", 
+        signif(tt_endline.high_zinc_low_iron_mnp_vs_placebo[g, "FDR"][[1]], 1),
         ")")) +
     stat_summary(
       fun.data = "mean_cl_boot",
