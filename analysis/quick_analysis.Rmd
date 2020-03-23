@@ -52,7 +52,7 @@ new_colData <- DataFrame(
     sce$well_position_in_original_dilution_layout,
   sequencing_run = sce$sequencing_run,
   id = factor(sce$id),
-  group = factor(sce$group, levels = c("C", "B", "A")),
+  group = factor(sce$group),
   collection_date = sce$collection_date,
   sample_serum = sce$sample_serum,
   rna = sce$rna,
@@ -66,8 +66,7 @@ new_colData <- DataFrame(
     dplyr::case_when(
       sce$group == "A" ~ "high_zinc_low_iron_mnp",
       sce$group == "B" ~ "zinc_10mg_tab", 
-      sce$group == "C" ~ "placebo"),
-    levels = c("placebo", "zinc_10mg_tab", "high_zinc_low_iron_mnp")),
+      sce$group == "C" ~ "placebo")),
   row.names = colnames(sce))
 
 colData(sce) <- new_colData
@@ -825,11 +824,24 @@ ggplot(aes(x = x, y = y), data = corrected_umap) +
 
 ```{r}
 library(edgeR)
-y <- DGEList(counts(sce), samples = colData(sce))
+library(Glimma)
+```
+
+```{r}
+y <- DGEList(counts(sce), samples = colData(sce), genes = rowData(sce))
 y$samples$plate_number <- factor(y$samples$plate_number)
 discarded <- isOutlier(y$samples$lib.size, log = TRUE, type = "lower", nmads = 3)
 y <- y[, !discarded]
 y$samples$g <- paste0(y$samples$regimen, ".", y$samples$timepoint)
+y$samples$abbreviated_g <- paste0(
+  dplyr::case_when(
+    y$samples$regimen == "placebo" ~ "plcb",
+    y$samples$regimen == "zinc_10mg_tab" ~ "Zn_10mg",
+    y$samples$regimen == "high_zinc_low_iron_mnp" ~ "Zn_Fe_MNP"),
+  ".", 
+  dplyr::case_when(
+    y$samples$timepoint == "baseline" ~ "base",
+    y$samples$timepoint == "endline" ~ "end"))
 design <- model.matrix(~0 + g + plate_number, data = y$samples)
 colnames(design) <- sub("^g|plate_number", "", colnames(design))
 colnames(design) <- sub(
@@ -898,6 +910,25 @@ for (i in seq_len(nrow(tt_placebo))) {
 dev.off()
 ```
 
+### Interactive plot
+
+```{r}
+glMDPlot(
+  qlf_placebo,
+  counts = fit$counts,
+  anno = fit$genes,
+  groups = fit$samples$abbreviated_g,
+  transform = TRUE,
+  main = "placebo.endline_vs_baseline",
+  status = decideTests(qlf_placebo),
+  side.ylab = "logCPM",
+  path = here("analysis"),
+  html = "placebo.endline_vs_baseline.MD_plot",
+  launch = FALSE)
+```
+
+`r glMDRmd("placebo.endline_vs_baseline.MD_plot")`
+
 ## zinc_10mg_tab.endline_vs_baseline
 
 ```{r}
@@ -938,6 +969,25 @@ for (i in seq_len(nrow(tt_zinc_10mg_tab))) {
 }
 dev.off()
 ```
+
+### Interactive plot
+
+```{r}
+glMDPlot(
+  qlf_zinc_10mg_tab,
+  counts = fit$counts,
+  anno = fit$genes,
+  groups = fit$samples$abbreviated_g,
+  transform = TRUE,
+  main = "zinc_10mg_tab.endline_vs_baseline",
+  status = decideTests(qlf_zinc_10mg_tab),
+  side.ylab = "logCPM",
+  path = here("analysis"),
+  html = "zinc_10mg_tab.endline_vs_baseline.MD_plot",
+  launch = FALSE)
+```
+
+`r glMDRmd("zinc_10mg_tab.endline_vs_baseline.MD_plot")`
 
 ## high_zinc_low_iron_mnp.endline_vs_baseline
 
@@ -980,6 +1030,25 @@ for (i in seq_len(nrow(tt_high_zinc_low_iron_mnp))) {
 dev.off()
 ```
 
+### Interactive plot
+
+```{r}
+glMDPlot(
+  qlf_high_zinc_low_iron_mnp,
+  counts = fit$counts,
+  anno = fit$genes,
+  groups = fit$samples$abbreviated_g,
+  transform = TRUE,
+  main = "high_zinc_low_iron_mnp.endline_vs_baseline",
+  status = decideTests(qlf_high_zinc_low_iron_mnp),
+  side.ylab = "logCPM",
+  path = here("analysis"),
+  html = "high_zinc_low_iron_mnp.endline_vs_baseline.MD_plot",
+  launch = FALSE)
+```
+
+`r glMDRmd("high_zinc_low_iron_mnp.endline_vs_baseline.MD_plot")`
+
 ## endline.zinc_10mg_tab_vs_placebo
 
 ```{r}
@@ -1020,6 +1089,25 @@ for (i in seq_len(nrow(tt_endline.zinc_10mg_tab_vs_placebo))) {
 }
 dev.off()
 ```
+
+### Interactive plot
+
+```{r}
+glMDPlot(
+  qlf_endline.zinc_10mg_tab_vs_placebo,
+  counts = fit$counts,
+  anno = fit$genes,
+  groups = fit$samples$abbreviated_g,
+  transform = TRUE,
+  main = "endline.zinc_10mg_tab_vs_placebo",
+  status = decideTests(qlf_endline.zinc_10mg_tab_vs_placebo),
+  side.ylab = "logCPM",
+  path = here("analysis"),
+  html = "endline.zinc_10mg_tab_vs_placebo.MD_plot",
+  launch = FALSE)
+```
+
+`r glMDRmd("endline.zinc_10mg_tab_vs_placebo.MD_plot")`
 
 ## endline.high_zinc_low_iron_mnp_vs_placebo
 
@@ -1062,13 +1150,32 @@ for (i in seq_len(nrow(tt_endline.high_zinc_low_iron_mnp_vs_placebo))) {
 dev.off()
 ```
 
+### Interactive plot
+
+```{r}
+glMDPlot(
+  qlf_endline.high_zinc_low_iron_mnp_vs_placebo,
+  counts = fit$counts,
+  anno = fit$genes,
+  groups = fit$samples$abbreviated_g,
+  transform = TRUE,
+  main = "endline.high_zinc_low_iron_mnp_vs_placebo",
+  status = decideTests(qlf_endline.high_zinc_low_iron_mnp_vs_placebo),
+  side.ylab = "logCPM",
+  path = here("analysis"),
+  html = "endline.high_zinc_low_iron_mnp_vs_placebo.MD_plot",
+  launch = FALSE)
+```
+
+`r glMDRmd("endline.high_zinc_low_iron_mnp_vs_placebo.MD_plot")`
+
 ## Summary
 
 ```{r}
 tmp <- cbind(
-    decideTests(qlf_placebo), 
-    decideTests(qlf_zinc_10mg_tab),
-    decideTests(qlf_high_zinc_low_iron_mnp))
+  decideTests(qlf_placebo), 
+  decideTests(qlf_zinc_10mg_tab),
+  decideTests(qlf_high_zinc_low_iron_mnp))
 colnames(tmp) <- c("placebo", "zinc_10mb_tab", "high_zinc_log_iron_mnp")
 vennDiagram(tmp)
 ```
@@ -1158,10 +1265,6 @@ plotHeatmap(
   order_columns_by  = c("plate_number", "regimen", "timepoint"),
   cluster_cols = FALSE)
 ```
-
-## Glimma
-
-**TODO:** Glimma MDS and MA plots
 
 # TODO
 
