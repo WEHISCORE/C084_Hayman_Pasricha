@@ -50,7 +50,7 @@ new_colData <- DataFrame(
     sce$well_position_in_original_dilution_layout,
   sequencing_run = sce$sequencing_run,
   id = factor(sce$id),
-  group = factor(sce$group),
+  group = factor(sce$group, levels = c("C", "B", "A")),
   collection_date = sce$collection_date,
   sample_serum = sce$sample_serum,
   rna = sce$rna,
@@ -60,6 +60,12 @@ new_colData <- DataFrame(
   position = sce$position,
   timepoint = sce$timepoint,
   UMI_deduped = sce$UMI_deduped,
+  regimen = factor(
+    dplyr::case_when(
+      sce$group == "A" ~ "high_zinc_low_iron_mnp",
+      sce$group == "B" ~ "zinc_10mg_tab", 
+      sce$group == "C" ~ "placebo"),
+    levels = c("placebo", "zinc_10mg_tab", "high_zinc_low_iron_mnp")),
   row.names = colnames(sce))
 
 colData(sce) <- new_colData
@@ -70,9 +76,9 @@ colData(sce) <- new_colData
 plate_number_colours <- setNames(
   RColorBrewer::brewer.pal(nlevels(sce$plate_number), "Set2"),
   levels(sce$plate_number))
-group_colours <- setNames(
-  RColorBrewer::brewer.pal(nlevels(sce$group), "Accent"),
-  levels(sce$group))
+regimen_colours <- setNames(
+  RColorBrewer::brewer.pal(nlevels(sce$regimen), "Accent"),
+  levels(sce$regimen))
 location_box_colours <- setNames(
   RColorBrewer::brewer.pal(nlevels(sce$location_box), "Set1"),
   levels(sce$location_box))
@@ -87,11 +93,11 @@ timepoint_colours <- setNames(
 plot_grid(
   ggplot(as.data.frame(colData(sce))) +
     geom_bar(
-      aes(x = plate_number, fill = group),
+      aes(x = plate_number, fill = regimen),
       position = position_fill(reverse = TRUE)) +
     coord_flip() +
     ylab("Frequency") +
-    scale_fill_manual(values = group_colours) +
+    scale_fill_manual(values = regimen_colours) +
     theme_cowplot(font_size = 6),
   ggplot(as.data.frame(colData(sce))) +
     geom_bar(
@@ -407,11 +413,11 @@ plot_grid(
 plot_grid(
   ggplot(as.data.frame(colData(sce))) +
     geom_bar(
-      aes(x = plate_number, fill = group),
+      aes(x = plate_number, fill = regimen),
       position = position_fill(reverse = TRUE)) +
     coord_flip() +
     ylab("Frequency") +
-    scale_fill_manual(values = group_colours) +
+    scale_fill_manual(values = regimen_colours) +
     theme_cowplot(font_size = 6),
   ggplot(as.data.frame(colData(sce))) +
     geom_bar(
@@ -443,53 +449,51 @@ plot_grid(
 
 ## Inspecting the most highly expressed genes
 
-
 ```{r, fig.asp = 1}
 plotHighestExprs(sce, n = 50)
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
-  sce[, sce$group == "A" & sce$timepoint == "baseline"],
+  sce[, sce$regimen == "placebo" & sce$timepoint == "baseline"],
   n = 50) +
-  ggtitle("A.baseline")
+  ggtitle("placebo.baseline")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
-  sce[, sce$group == "A" & sce$timepoint == "endline"],
+  sce[, sce$regimen == "placebo" & sce$timepoint == "endline"],
   n = 50) +
-  ggtitle("A.endline")
+  ggtitle("placebo.endline")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
-  sce[, sce$group == "B" & sce$timepoint == "baseline"],
+  sce[, sce$regimen == "zinc_10mg_tab" & sce$timepoint == "baseline"],
   n = 50) +
-  ggtitle("B.baseline")
+  ggtitle("zinc_10mg_tab.baseline")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
-  sce[, sce$group == "B" & sce$timepoint == "endline"],
+  sce[, sce$regimen == "zinc_10mg_tab" & sce$timepoint == "endline"],
   n = 50) +
-  ggtitle("B.endline")
+  ggtitle("zinc_10mg_tab.endline")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
-  sce[, sce$group == "C" & sce$timepoint == "baseline"],
+  sce[, sce$regimen == "high_zinc_low_iron_mnp" & sce$timepoint == "baseline"],
   n = 50) +
-  ggtitle("C.baseline")
+  ggtitle("high_zinc_low_iron_mnp.baseline")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
-  sce[, sce$group == "C" & sce$timepoint == "endline"],
+  sce[, sce$regimen == "high_zinc_low_iron_mnp" & sce$timepoint == "endline"],
   n = 50) +
-  ggtitle("C.endline")
+  ggtitle("high_zinc_low_iron_mnp.endline")
 ```
-
 
 ```{r, fig.asp = 1}
 plotHighestExprs(sce[!grepl("^MT|^RPS|^RPL", rownames(sce)), ], n = 50) +
@@ -499,49 +503,49 @@ plotHighestExprs(sce[!grepl("^MT|^RPS|^RPL", rownames(sce)), ], n = 50) +
 ```{r, fig.asp = 1}
 plotHighestExprs(
   sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
-      sce$group == "A" & sce$timepoint == "baseline"],
+      sce$regimen == "placebo" & sce$timepoint == "baseline"],
   n = 50) +
-  ggtitle("A.baseline: Excluding mitochondrial and ribosomal protein genes")
+  ggtitle("placebo.baseline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
   sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
-      sce$group == "A" & sce$timepoint == "endline"],
+      sce$regimen == "placebo" & sce$timepoint == "endline"],
   n = 50) +
-  ggtitle("A.endline: Excluding mitochondrial and ribosomal protein genes")
+  ggtitle("placebo.endline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
   sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
-      sce$group == "B" & sce$timepoint == "baseline"],
+      sce$regimen == "zinc_10mg_tab" & sce$timepoint == "baseline"],
   n = 50) +
-  ggtitle("B.baseline: Excluding mitochondrial and ribosomal protein genes")
+  ggtitle("zinc_10mg_tab.baseline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
   sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
-      sce$group == "B" & sce$timepoint == "endline"],
+      sce$regimen == "zinc_10mg_tab" & sce$timepoint == "endline"],
   n = 50) +
-  ggtitle("B.endline: Excluding mitochondrial and ribosomal protein genes")
+  ggtitle("zinc_10mg_tab.endline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
   sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
-      sce$group == "C" & sce$timepoint == "baseline"],
+      sce$regimen == "high_zinc_low_iron_mnp" & sce$timepoint == "baseline"],
   n = 50) +
-  ggtitle("C.baseline: Excluding mitochondrial and ribosomal protein genes")
+  ggtitle("high_zinc_low_iron_mnp.baseline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ```{r, fig.asp = 1}
 plotHighestExprs(
   sce[!grepl("^MT|^RPS|^RPL", rownames(sce)),
-      sce$group == "C" & sce$timepoint == "endline"],
+      sce$regimen == "high_zinc_low_iron_mnp" & sce$timepoint == "endline"],
   n = 50) +
-  ggtitle("C.endline: Excluding mitochondrial and ribosomal protein genes")
+  ggtitle("high_zinc_low_iron_mnp.endline: Excluding mitochondrial and ribosomal protein genes")
 ```
 
 ## Filtering out low-abundance genes
@@ -823,7 +827,7 @@ y <- DGEList(counts(sce), samples = colData(sce))
 y$samples$plate_number <- factor(y$samples$plate_number)
 discarded <- isOutlier(y$samples$lib.size, log = TRUE, type = "lower", nmads = 3)
 y <- y[, !discarded]
-y$samples$g <- paste0(y$samples$group, ".", y$samples$timepoint)
+y$samples$g <- paste0(y$samples$regimen, ".", y$samples$timepoint)
 design <- model.matrix(~0 + g + plate_number, data = y$samples)
 colnames(design) <- sub("^g|plate_number", "", colnames(design))
 colnames(design) <- sub(
@@ -839,37 +843,40 @@ y <- estimateDisp(y, design)
 fit <- glmQLFit(y, design, robust = TRUE)
 
 my_contrasts <- makeContrasts(
-  A.endline_vs_baseline = A.endline - A.baseline,
-  B.endline_vs_baseline = B.endline - B.baseline,
-  C.endline_vs_baseline = C.endline - C.baseline,
+  placebo.endline_vs_baseline = placebo.endline - placebo.baseline,
+  zinc_10mg_tab.endline_vs_baseline = zinc_10mg_tab.endline - 
+    zinc_10mg_tab.baseline,
+  high_zinc_low_iron_mnp.endline_vs_baseline = 
+    high_zinc_low_iron_mnp.endline - 
+    high_zinc_low_iron_mnp.baseline,
   levels = design)
 ```
 
-## A.endline_vs_baseline
+## placebo.endline_vs_baseline
 
 ```{r}
-qlf_A <- glmQLFTest(fit, contrast = my_contrasts[, "A.endline_vs_baseline"])
-summary(decideTests(qlf_A))
-rmarkdown::paged_table(as.data.frame(topTags(qlf_A, n = Inf, p.value = 0.05)))
+qlf_placebo <- glmQLFTest(fit, contrast = my_contrasts[, "placebo.endline_vs_baseline"])
+summary(decideTests(qlf_placebo))
+rmarkdown::paged_table(as.data.frame(topTags(qlf_placebo, n = Inf, p.value = 0.05)))
 ```
 
 ```{r}
-tt_A <- topTags(qlf_A, n = Inf, p.value = 0.05)
+tt_placebo <- topTags(qlf_placebo, n = Inf, p.value = 0.05)
 pdf(here("output", "figures", "C.endline_vs_baseline.pdf"))
-for (i in seq_len(nrow(tt_A))) {
+for (i in seq_len(nrow(tt_placebo))) {
   message(i)
-  g <- rownames(tt_A)[i]
+  g <- rownames(tt_placebo)[i]
   p <- plotExpression(
     sce,
     g,
-    x = I(paste0(sce$group, ".", sce$timepoint)), colour_by = "timepoint",
+    x = I(paste0(sce$regimen, ".", sce$timepoint)), colour_by = "timepoint",
     other_fields = "plate_number") + 
     facet_grid(~ plate_number) +
     ggtitle(
       paste0(
         g,
         " (FDR = ", 
-        signif(tt_A[g, "FDR"][[1]], 1),
+        signif(tt_placebo[g, "FDR"][[1]], 1),
         ")")) +
     stat_summary(
       fun.data = "mean_cl_boot",
@@ -886,35 +893,31 @@ for (i in seq_len(nrow(tt_A))) {
 dev.off()
 ```
 
-## B.endline_vs_baseline
+## zinc_10mg_tab.endline_vs_baseline
 
 ```{r}
-qlf_B <- glmQLFTest(fit, contrast = my_contrasts[, "B.endline_vs_baseline"])
-summary(decideTests(qlf_B))
-rmarkdown::paged_table(as.data.frame(topTags(qlf_B, n = Inf, p.value = 0.05)))
+qlf_zinc_10mg_tab <- glmQLFTest(fit, contrast = my_contrasts[, "zinc_10mg_tab.endline_vs_baseline"])
+summary(decideTests(qlf_zinc_10mg_tab))
+rmarkdown::paged_table(as.data.frame(topTags(qlf_zinc_10mg_tab, n = Inf, p.value = 0.05)))
 ```
 
 ```{r}
-
-```
-
-```{r}
-tt_B <- topTags(qlf_B, n = Inf, p.value = 0.05)
-pdf(here("output", "figures", "B.endline_vs_baseline.pdf"))
-for (i in seq_len(nrow(tt_B))) {
+tt_zinc_10mg_tab <- topTags(qlf_zinc_10mg_tab, n = Inf, p.value = 0.05)
+pdf(here("output", "figures", "zinc_10mg_tab.endline_vs_baseline.pdf"))
+for (i in seq_len(nrow(tt_zinc_10mg_tab))) {
   message(i)
-  g <- rownames(tt_B)[i]
+  g <- rownames(tt_zinc_10mg_tab)[i]
   p <- plotExpression(
     sce,
     g,
-    x = I(paste0(sce$group, ".", sce$timepoint)), colour_by = "timepoint",
+    x = I(paste0(sce$regimen, ".", sce$timepoint)), colour_by = "timepoint",
     other_fields = "plate_number") + 
     facet_grid(~ plate_number) +
     ggtitle(
       paste0(
         g,
         " (FDR = ", 
-        signif(tt_B[g, "FDR"][[1]], 1),
+        signif(tt_zinc_10mg_tab[g, "FDR"][[1]], 1),
         ")")) +
     stat_summary(
       fun.data = "mean_cl_boot",
@@ -931,31 +934,31 @@ for (i in seq_len(nrow(tt_B))) {
 dev.off()
 ```
 
-## C.endline_vs_baseline
+## high_zinc_low_iron_mnp.endline_vs_baseline
 
 ```{r}
-qlf_C <- glmQLFTest(fit, contrast = my_contrasts[, "C.endline_vs_baseline"])
-summary(decideTests(qlf_C))
-rmarkdown::paged_table(as.data.frame(topTags(qlf_C, n = Inf, p.value = 0.05)))
+qlf_high_zinc_low_iron_mnp <- glmQLFTest(fit, contrast = my_contrasts[, "high_zinc_low_iron_mnp.endline_vs_baseline"])
+summary(decideTests(qlf_high_zinc_low_iron_mnp))
+rmarkdown::paged_table(as.data.frame(topTags(qlf_high_zinc_low_iron_mnp, n = Inf, p.value = 0.05)))
 ```
 
 ```{r}
-tt_C <- topTags(qlf_C, n = Inf, p.value = 0.05)
-pdf(here("output", "figures", "C.endline_vs_baseline.pdf"))
-for (i in seq_len(nrow(tt_C))) {
+tt_high_zinc_low_iron_mnp <- topTags(qlf_high_zinc_low_iron_mnp, n = Inf, p.value = 0.05)
+pdf(here("output", "figures", "high_zinc_low_iron_mnp.endline_vs_baseline.pdf"))
+for (i in seq_len(nrow(tt_high_zinc_low_iron_mnp))) {
   message(i)
-  g <- rownames(tt_C)[i]
+  g <- rownames(tt_high_zinc_low_iron_mnp)[i]
   p <- plotExpression(
     sce,
     g,
-    x = I(paste0(sce$group, ".", sce$timepoint)), colour_by = "timepoint",
+    x = I(paste0(sce$regimen, ".", sce$timepoint)), colour_by = "timepoint",
     other_fields = "plate_number") + 
     facet_grid(~ plate_number) +
     ggtitle(
       paste0(
         g,
         " (FDR = ", 
-        signif(tt_C[g, "FDR"][[1]], 1),
+        signif(tt_high_zinc_low_iron_mnp[g, "FDR"][[1]], 1),
         ")")) +
     stat_summary(
       fun.data = "mean_cl_boot",
@@ -975,11 +978,16 @@ dev.off()
 ## Summary
 
 ```{r}
-vennDiagram(cbind(decideTests(qlf_A), decideTests(qlf_B), decideTests(qlf_C)))
+tmp <- cbind(
+    decideTests(qlf_placebo), 
+    decideTests(qlf_zinc_10mg_tab),
+    decideTests(qlf_high_zinc_low_iron_mnp))
+colnames(tmp) <- c("placebo", "zinc_10mb_tab", "high_zinc_log_iron_mnp")
+vennDiagram(tmp)
 ```
 
 ```{r}
-g <- unique(c(rownames(tt_A), rownames(tt_B), rownames(tt_C)))
+g <- unique(c(rownames(tt_placebo), rownames(tt_zinc_10mg_tab), rownames(tt_high_zinc_low_iron_mnp)))
 ```
 
 ```{r}
@@ -990,8 +998,8 @@ plotHeatmap(
   features = g,
   center = TRUE,
   zlim = c(-3, 3),
-  colour_columns_by = c("plate_number", "group", "timepoint"),
-  order_columns_by  = c("plate_number", "group", "timepoint"),
+  colour_columns_by = c("plate_number", "regimen", "timepoint"),
+  order_columns_by  = c("plate_number", "regimen", "timepoint"),
   cluster_cols = FALSE)
 dev.off()
 ```
@@ -1007,8 +1015,8 @@ plotHeatmap(
   features = g,
   center = TRUE,
   zlim = c(-3, 3),
-  colour_columns_by = c("group", "timepoint"),
-  order_columns_by  = c("group", "timepoint"),
+  colour_columns_by = c("regimen", "timepoint"),
+  order_columns_by  = c("regimen", "timepoint"),
   cluster_cols = FALSE,
   main = "LCE_476_BU_8_cycle")
 dev.off()
@@ -1028,8 +1036,8 @@ plotHeatmap(
   features = g,
   center = TRUE,
   zlim = c(-3, 3),
-  colour_columns_by = c("group", "timepoint"),
-  order_columns_by  = c("group", "timepoint"),
+  colour_columns_by = c("regimen", "timepoint"),
+  order_columns_by  = c("regimen", "timepoint"),
   cluster_cols = FALSE,
   main = "C084_LC475_mini_bulk_back_up_1:10")
 dev.off()
@@ -1037,7 +1045,7 @@ dev.off()
 
 ```{r, eval = FALSE}
 rescaled$plate_number <- sce$plate_number
-rescaled$group <- sce$group
+rescaled$regimen <- sce$regimen
 rescaled$timepoint <- sce$timepoint
 plotHeatmap(
   rescaled,
@@ -1045,12 +1053,12 @@ plotHeatmap(
   features = g,
   center = TRUE,
   zlim = c(-3, 3),
-  colour_columns_by = c("plate_number", "group", "timepoint"))
+  colour_columns_by = c("plate_number", "regimen", "timepoint"))
 ```
 
 ```{r, eval = FALSE}
 rescaled$plate_number <- sce$plate_number
-rescaled$group <- sce$group
+rescaled$regimen <- sce$regimen
 rescaled$timepoint <- sce$timepoint
 plotHeatmap(
   rescaled,
@@ -1059,8 +1067,8 @@ plotHeatmap(
   center = TRUE,
   symmetric = TRUE,
   zlim = c(-3, 3),
-  colour_columns_by = c("plate_number", "group", "timepoint"),
-  order_columns_by  = c("plate_number", "group", "timepoint"),
+  colour_columns_by = c("plate_number", "regimen", "timepoint"),
+  order_columns_by  = c("plate_number", "regimen", "timepoint"),
   cluster_cols = FALSE)
 ```
 
