@@ -378,6 +378,13 @@
       "Repository": "CRAN",
       "Hash": "08cf4045c149a0f0eaf405324c7495bd"
     },
+    "cluster": {
+      "Package": "cluster",
+      "Version": "2.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "db63a44aab5aadcb6bf2f129751d129a"
+    },
     "colorspace": {
       "Package": "colorspace",
       "Version": "1.4-1",
@@ -488,6 +495,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "dad6793a5a1f73c8e91f1a1e3e834b05"
+    },
+    "foreign": {
+      "Package": "foreign",
+      "Version": "0.8-78",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "719d063c5471897282c0b3270b84b580"
     },
     "formatR": {
       "Package": "formatR",
@@ -775,6 +789,13 @@
       "Repository": "CRAN",
       "Hash": "662f52871983ff3e3ef042c62de126df"
     },
+    "nnet": {
+      "Package": "nnet",
+      "Version": "7.3-13",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "aaeb5c7cae85223cc6d282f295dff295"
+    },
     "openssl": {
       "Package": "openssl",
       "Version": "1.4.2",
@@ -961,6 +982,13 @@
       "Repository": "CRAN",
       "Hash": "241454e22c9d26b11669b78d06706b41"
     },
+    "rpart": {
+      "Package": "rpart",
+      "Version": "4.1-15",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "9787c1fcb680e655d062e7611cadf78e"
+    },
     "rprojroot": {
       "Package": "rprojroot",
       "Version": "1.3-2",
@@ -1054,6 +1082,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "0759e6b6c0957edb1311028a49a35e76"
+    },
+    "survival": {
+      "Package": "survival",
+      "Version": "3.1-12",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1c5bb53bd428f3c42a25b7aeb983d8c7"
     },
     "sys": {
       "Package": "sys",
