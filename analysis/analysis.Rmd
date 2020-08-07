@@ -1,0 +1,767 @@
+---
+title: "Differential expression analysis of the Hayman and Paschricha (C084) iron study"
+description: |
+author:
+  - name: Peter Hickey 
+    url: https://peterhickey.org
+    affiliation: WEHI SCORE
+    affiliation_url: https://www.wehi.edu.au/people/shalin-naik/3310/score
+date: "`r Sys.Date()`"
+output: distill::distill_article
+editor_options: 
+  chunk_output_type: console
+bibliography: ref.bib
+---
+
+```{r setup}
+library(SingleCellExperiment)
+library(here)
+library(rmarkdown)
+library(janitor)
+library(ggplot2)
+library(patchwork)
+library(BiocParallel)
+library(scater)
+library(cowplot)
+library(limma)
+
+# NOTE: Using >= 4 cores seizes up my laptop. Can use more on RStudio server.
+options(
+  "mc.cores" = 
+    ifelse(Sys.info()[["nodename"]] == "rstudio-1.hpc.wehi.edu.au", 8L, 2L))
+
+register(MulticoreParam(workers = getOption("mc.cores")))
+
+knitr::opts_chunk$set(
+  fig.path = "C084_Hayman_Pasricha.analysis_files/")
+```
+
+# Setting up the data
+
+We start from the count matrices created in [`code/scPipe.R`](../code/scPipe.R`), specifically the [UMI counts (a.k.a. UMI-deduplicated) data](../data/SCEs/C084_Hayman_Pasricha.UMI_deduped.scPipe.SCE.rds) and [read counts (a.k.a. not UMI-deduplicated) data](../data/SCEs/C084_Hayman_Pasricha.not_UMI_deduped.scPipe.SCE.rds).
+
+<aside>
+UMI stands for unique molecular identifier.
+</aside>
+
+```{r}
+sce_deduped <- readRDS(
+  here("data", "SCEs", "C084_Hayman_Pasricha.UMI_deduped.scPipe.SCE.rds"))
+sce_not_deduped <- readRDS(
+  here("data", "SCEs", "C084_Hayman_Pasricha.not_UMI_deduped.scPipe.SCE.rds"))
+
+colnames(sce_not_deduped) <- sub(
+  "\\.not_UMI_deduped",
+  "",
+  colnames(sce_not_deduped))
+stopifnot(
+  identical(rownames(sce_deduped), rownames(sce_not_deduped)),
+  identical(colnames(sce_deduped), colnames(sce_not_deduped))) 
+sce <- sce_deduped
+assay(sce, "UMI_counts") <- assay(sce_deduped, "counts")
+assay(sce, "read_counts") <- assay(sce_not_deduped, "counts")
+```
+
+We combine these into a single object^[In the terminology of Bioconductor this is called a *SingleCellExperiment* object.] containing both the UMI counts and the read counts for `r nrow(sce)` genes and `r ncol(sce)` samples.
+
+## Incorporating gene-based annotation
+
+We obtain gene-based annotations from the NCBI/RefSeq and Ensembl databases, such as the chromosome and gene symbol, using the `r BiocStyle::Biocpkg("Homo.sapiens")` and `r BiocStyle::Biocpkg("EnsDb.Hsapiens.v86")` packages.
+
+```{r}
+# Extract rownames (Ensembl IDs) to use as key in database lookups.
+ensembl <- rownames(sce)
+
+# Pull out useful gene-based annotations from the Ensembl-based database.
+library(EnsDb.Hsapiens.v86)
+library(ensembldb)
+# NOTE: These columns were customised for this project.
+ensdb_columns <- c(
+  "GENEBIOTYPE", "GENENAME", "GENESEQSTART", "GENESEQEND", "SEQNAME", "SYMBOL")
+names(ensdb_columns) <- paste0("ENSEMBL.", ensdb_columns)
+stopifnot(all(ensdb_columns %in% columns(EnsDb.Hsapiens.v86)))
+ensdb_df <- DataFrame(
+  lapply(ensdb_columns, function(column) {
+    mapIds(
+      x = EnsDb.Hsapiens.v86, 
+      # NOTE: Need to remove gene version number prior to lookup.
+      keys = gsub("\\.[0-9]+$", "", ensembl),
+      keytype = "GENEID",
+      column = column,
+      multiVals = "CharacterList")
+  }),
+  row.names = ensembl)
+# NOTE: Can't look up GENEID column with GENEID key, so have to add manually.
+ensdb_df$ENSEMBL.GENEID <- ensembl
+
+# NOTE: Homo.sapiens combines org.Hs.eg.db and
+#       TxDb.Hsapiens.UCSC.hg38.knownGene (as well as others) and therefore 
+#       uses entrez gene and RefSeq based data.
+library(Homo.sapiens)
+# NOTE: These columns were customised for this project.
+ncbi_columns <- c(
+  # From TxDB: None required
+  # From OrgDB
+  "ALIAS", "ENTREZID", "GENENAME", "REFSEQ", "SYMBOL")
+names(ncbi_columns) <- paste0("NCBI.", ncbi_columns)
+stopifnot(all(ncbi_columns %in% columns(Homo.sapiens)))
+ncbi_df <- DataFrame(
+  lapply(ncbi_columns, function(column) {
+    mapIds(
+      x = Homo.sapiens, 
+      # NOTE: Need to remove gene version number prior to lookup.
+      keys = gsub("\\.[0-9]+$", "", ensembl),
+      keytype = "ENSEMBL",
+      column = column,
+      multiVals = "CharacterList")
+  }),
+  row.names = ensembl)
+
+rowData(sce) <- cbind(ensdb_df, ncbi_df)
+```
+
+Having quantified gene expression against the GENCODE gene annotation, we have Ensembl-style identifiers for the genes. 
+These identifiers are used as they are unambiguous and highly stable. 
+However, they are difficult to interpret compared to the gene symbols which are more commonly used in the literature.
+Henceforth, we will use gene symbols (where available) to refer to genes in our analysis and otherwise use the Ensembl-style gene identifiers^[Some care is taken to account for missing and duplicate gene symbols; missing symbols are replaced with the Ensembl identifier and duplicated symbols are concatenated with the (unique) Ensembl identifiers.].
+
+```{r}
+# Replace the row names of the SCE by the gene symbols (where available).
+rownames(sce) <- uniquifyFeatureNames(
+  ID = rownames(sce), 
+  # NOTE: An Ensembl ID may map to 0, 1, 2, 3, ... gene symbols.
+  #       When there are multiple matches only the 1st match is used.
+  names = sapply(rowData(sce)$ENSEMBL.SYMBOL, function(x) {
+    if (length(x)) {
+      x[[1]]
+    } else {
+      NA_character_
+    }
+    }))
+```
+
+```{r}
+# Some useful gene sets
+mito_set <- rownames(sce)[any(rowData(sce)$ENSEMBL.SEQNAME == "MT")]
+
+ribo_set <- grep("^RP(S|L)", rownames(sce), value = TRUE)
+# NOTE: A more curated approach for identifying ribosomal protein genes 
+#       (https://github.com/Bioconductor/OrchestratingSingleCellAnalysis-base/blob/ae201bf26e3e4fa82d9165d8abf4f4dc4b8e5a68/feature-selection.Rmd#L376-L380)
+library(msigdbr)
+c2_sets <- msigdbr(species = "Homo sapiens", category = "C2")
+ribo_set <- union(
+  ribo_set,
+  c2_sets[c2_sets$gs_name == "KEGG_RIBOSOME", ]$gene_symbol)
+
+e <- new.env()
+load(url("http://bioinf.wehi.edu.au/software/GenderGenes/GenderGenes.RData"), e)
+sex_set <- rownames(sce)[
+  any(rowData(sce)$NCBI.ENTREZID %in% c(e$XiEgenes, e$msYgenes))]
+
+pseudogene_set <- rownames(sce)[
+  any(grepl("pseudogene", rowData(sce)$ENSEMBL.GENEBIOTYPE))]
+
+hemo_set <- rownames(sce)[
+  any(grepl("hemoglobin subunit", rowData(sce)$NCBI.GENENAME))]
+```
+
+## Failure of `LCE475`
+
+There are 3 batches of samples in total - `r glue::glue_collapse(unique(sce$plate_number), sep = ", ", last = ", and ")` - and these are technical replicates of one another (i.e. each well contains the same sample across all 3 batches).
+This was not the original plan.
+
+The `LCE475` batch was intended to be the only batch, but something went wrong in the library preparation or sequencing and it generated very few reads (maximum library size in reads = `r max(colSums(assay(sce, "read_counts")[, sce$plate_number == "LCE475"]))`).
+We therefore remove the `LCE475` samples from further analysis.
+
+```{r}
+sce <- sce[, sce$plate_number != "LCE475"]
+```
+
+Following the failure of `LCE475`, the library preparation and sequencing were repeated a further 2 times:
+
+- `C084_LC475_mini_bulk_back_up_1:10`: A 1:10 dilution of the material on `LCE475`
+- `LCE_476_BU_8_cycle`: 8 cycles of PCR
+
+**TODO** Get a proper description of how these two plates were prepared.
+
+## UMI counts vs. read counts
+
+### Motivation
+
+A unique feature of SCORE's 'mini-bulk' RNA-sequencing protocol is the incorporation of unique molecular identifiers (UMIs) into the library preparation; an ordinary bulk RNA-seq protocol does not incorporate UMIs.
+
+UMIs are commonly used in single-cell RNA-sequencing protocols, such as the CEL-Seq2 protocol from which the mini-bulk protocol is adapted.
+UMIs are molecular tags that are used to detect and quantify unique mRNA transcripts.
+In this method, mRNA libraries are generated by fragmentation and reverse-transcribed to cDNA.
+Oligo(dT) primers with specific sequencing linkers are added to the cDNA.
+Another sequencing linker with a 6 bp random label and an index sequence is added to the 5' end of the template, which is amplified and sequenced.
+
+<aside>
+This explanation is adapted from [https://sapac.illumina.com/science/sequencing-method-explorer/kits-and-arrays/umi.html](https://sapac.illumina.com/science/sequencing-method-explorer/kits-and-arrays/umi.html).
+</aside>
+
+The UMI count is always less than or equal to the read count and a UMI count of zero also implies a read count of zero.
+
+Pros of using UMIs:
+
+- Can sequence unique mRNA transcripts
+- Can detect transcripts occurring at low frequencies
+- Transcripts can be quantified based on sequencing reads specific to each barcode
+
+Cons of using UMIs:
+
+- SCORE's mini-bulk protocol uses a $k=6$ bp UMI^[The choice of a 6 bp UMI in the mini-bulk protocol is because it is adapted from SCORE's CEL-Seq2 single-cell RNA-sequencing protocol. With scRNA-seq data it is very rare to observe more than $4^6 = 4096$ unique molecules for any one gene.] and so (theoretically) the maximum UMI count for each gene is $4^6 = 4096$.
+- There is therefore a risk that highly expressed genes may have their expression measurements artificially truncated, particularly if the sample is deeply sequenced.
+
+To investigate whether expression measurements are being 'truncated' in this dataset, and decide whether to use the UMI counts or the read counts, we generated and now analyse two count matrices:
+
+1. UMI counts (i.e. deduplicating UMI counts)
+2. Read counts (i.e. not deduplicating UMI counts, equivalent to ignoring the UMIs)
+
+### Analysis
+
+```{r read-distribution, fig.cap = "Distribution of the logarithm of the read counts as density plot (left) and empirical cumulative distribution function (right). A count of 1 is added to each UMI count to avoid taking the logarithm of zero. The orange vertical line denotes $4^6 = 4096$.", fig.asp = 1 / 2}
+x <- as.vector(assay(sce, "read_counts")) + 1
+
+par(mfrow = c(1, 2), cex = 0.5)
+plot(
+  density(log2(x), from = min(log2(x)), to = max(log2(x))),
+  xlab = expression(log[2](reads + 1)),
+  main = "",
+  ylab = "density")
+abline(v = log2(4 ^ 6), col = "orange")
+plot(
+  ecdf(log2(x)), 
+  xlim = range(log2(x)),
+  main = "",
+  xlab = expression(log[2](reads + 1)),
+  ylab = "cumulative density")
+abline(v = log2(4 ^ 6), col = "orange")
+```
+
+Figure \@ref(fig:read-distribution) plots the distribution of the logarithm of the read counts.
+From this we see that the vast majority of read counts are small. 
+In fact:
+
+- `r scales::percent(sum(as.vector(assay(sce, "read_counts")) == 0) / prod(dim(sce)), accuracy = 0.1)` of read counts are 0
+- 95% of the read counts are no greater than `r quantile(as.vector(assay(sce, "read_counts")), 0.95)` 
+- 99% of the read counts are no greater than `r quantile(as.vector(assay(sce, "read_counts")), 0.99)` 
+- 99.9% of the read counts are no greater than `r quantile(as.vector(assay(sce, "read_counts")), 0.999)`
+
+Most importantly, only (`r scales::percent(sum(as.vector(assay(sce, "read_counts")) > 4^6) / prod(dim(sce)), accuracy = 0.001)`) of read counts exceed the $4^6=4096$ threshold.
+
+<aside>
+Surprisingly, `r scales::percent(sum(as.vector(assay(sce, "UMI_counts")) > 4^6) / prod(dim(sce)), accuracy = 0.001)` of UMI counts exceed the theoretical maximum of $4^6=4096$. At this stage it is not clear to me how this can occur.
+</aside>
+
+The only genes with read counts exceeding the $4^6=4096$ threshold are shown in the table below.
+If we were to use the UMI counts, the genes in this list will have their expression measurements artificially truncated in those samples where the read counts exceed the $4^6=4096$ threshold.
+
+```{r}
+n <- apply(assay(sce, "read_counts"), 1, function(x) sum(x > 4 ^ 6))
+g <- names(n[n > 0])
+read_e <- as.matrix(assay(sce, "read_counts")[g, ])
+umi_e <- as.matrix(assay(sce, "UMI_counts")[g, ])
+high_count_tbl <- tibble::tibble(
+  gene = g,
+  read_median_count = matrixStats::rowMedians(read_e),
+  read_exceed_sum = matrixStats::rowSums2(read_e > 4 ^ 6),
+  read_exceed_percent = read_exceed_sum / ncol(sce),
+  umi_median_count = matrixStats::rowMedians(umi_e),
+  umi_exceed_sum = matrixStats::rowSums2(umi_e > 4 ^ 6),
+  umi_exceed_percent = umi_exceed_sum / ncol(sce)) %>%
+  dplyr::arrange(desc(read_exceed_sum))
+
+sketch <- htmltools::withTags(table(
+  class = "display",
+  thead(
+    tr(
+      th(rowspan = 2, "gene"),
+      th(colspan = 3, "reads"),
+      th(colspan = 3, "UMIs")
+    ),
+    tr(
+      lapply(rep(c("median count", "N > 4096", "% > 4096"), 2), th)
+    )
+  )
+))
+
+DT::datatable(
+  high_count_tbl, 
+  caption = "Genes for which any sample has a read count exceeding the 4096 threshold and summaries of the corresponding read and UMI counts, namely: the median count ('median count'); the number of samples for which the counts exceed the threshold ('N > 4096'); and the percentage of samples for which the counts exceed the threshold ('% > 4096').",
+  container = sketch,
+  rownames = FALSE) %>%
+  DT::formatPercentage(
+    columns = c("read_exceed_percent", "umi_exceed_percent"),
+    digits = 1) %>%
+  DT::formatRound(
+    columns = c("read_median_count", "umi_median_count"),
+    digits = 0)
+```
+
+There are a few points worth drawing attention to based on this table:
+
+1. The 3 worst offenders are all haemoglobin subunits
+2. There are several mitochondrial and ribosomal protein genes on the list
+3. There are some key immune genes on the list, e.g., *PTPRC* (encoding CD45), *B2M*, and *HLA-B*
+
+We can investigate this list more formally using a statistical test for over-representation of gene ontology (GO) terms in this gene set.
+This is done using the `goana()` function from the `r BiocStyle::Biocpkg("limma")` package.
+These results are shown in the table below.
+
+```{r}
+# NOTE: kegga() was uninformative.
+go <- goana(unlist(rowData(sce[g, ])$NCBI.ENTREZID), species = "Hs")
+tg <- topGO(go, number = Inf)
+DT::datatable(
+  tg[tg$P.DE < 0.05, ],
+  caption = "Most significant GO terms for genes with read counts that exceed the 4096 threshold. Report columns are the ontology that the GO term belongs to ('Ont'); the number of genes in the GO term ('N'); the number of genes in the DE set ('DE'); and the p-value for over-representation of the GO term in the set ('P.DE'). The p-values returned are unadjusted for multiple testing because GO terms are often overlapping, so standard methods of p-value adjustment may be very conservative. This means that only very small p-values should be used for published results.") %>%
+  DT::formatRound(columns = "P.DE", digits = 9)
+```
+
+Several of the top GO terms relate to haptoglobin and hemoglobin, mitochondrial functions, and immune terms.
+However, it is somewhat concerning to see 'response to stress' at the top of this list, which may indicate the sample quality was compromised prior to or during library preparation.
+
+Figure \@ref(fig:scatterplot-and-ma-plot) plots the relationship between UMI counts and read counts for all genes and samples.
+
+```{r scatterplot-and-ma-plot, fig.cap = "Scatterplot of the logarithm of the UMI and read counts (top) and logCPM of the UMI and read counts (bottom) for all genes and samples (left) and mean-difference plot of the same data (right). The correlation in the scatterplot is reported below the x-axis label. Genes that are haemoglobin subunits are highlighted in red. The orange lines denote $4^6 = 4096$ and the blue line is a trend fitted to the mean-differences.", fig.asp = 1}
+x <- log2(as.vector(assay(sce, "UMI_counts")) + 1)
+y <- log2(as.vector(assay(sce, "read_counts")) + 1)
+m <- (x + y) / 2
+d <- y - x
+g <- rep(rownames(sce), ncol(sce))
+# NOTE: Only showing unique points for plotting speed.
+i <- !duplicated(paste0(x, ".", y))
+
+X <- edgeR::cpm(assay(sce, "UMI_counts"), log = TRUE)
+Y <- edgeR::cpm(assay(sce, "read_counts"), log = TRUE)
+M <- (X + Y) / 2
+D <- y - x
+G <- g
+# NOTE: Only showing unique points for plotting speed.
+I <- !duplicated(paste0(x, ".", y))
+
+par(mfrow = c(2, 2))
+plotWithHighlights(
+  x = x[i],
+  y = y[i],
+  status = g[i] %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  sub = paste0("r = ", round(cor(x, y), 3)),
+  xlab = expression(log[2](UMIs + 1)),
+  ylab = expression(log[2](reads + 1)))
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plotWithHighlights(
+  x = m[i] / 2,
+  y = d[i],
+  pch = ".",
+  status = g[i] %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  xlab = "Average log-(count+1)",
+  ylab = "logFC (reads vs. UMIs)",
+  ylim = c(-max(abs(c(d, D))), max(abs(c(d, D)))))
+abline(h = 0, lty = 2, col = "grey")
+l <- lowess(m, d, f = 0.1)
+lines(l, col = "dodgerBlue", lwd = 2)
+
+plotWithHighlights(
+  x = X[I],
+  y = Y[I],
+  status = G[I] %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  sub = paste0("r = ", round(cor(as.vector(X), as.vector(Y)), 3)),
+  xlab = expression(logCPM(UMIs)),
+  ylab = expression(logCPM(reads)))
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plotWithHighlights(
+  x = M[I],
+  y = D[i],
+  status = G[I] %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  xlab = "Average logCPM",
+  ylab = "logFC (reads vs. UMIs)",
+  ylim = c(-max(abs(c(d, D))), max(abs(c(d, D)))))
+abline(h = 0, lty = 2, col = "grey")
+l <- lowess(M, D, f = 0.1)
+lines(l, col = "dodgerBlue", lwd = 2)
+```
+
+There are a few notable points about this figure:
+
+1. The UMI counts and read counts are very strongly associated.
+2. The log-fold change between the read counts and the UMI counts can be large, indicating the UMI counts are likely removing substantial PCR amplification noise.
+3. The log-fold changes between the read counts and the UMI counts are larger on average for more highly expressed genes. The variation in the log-fold change is larger for the lowly expressed genes.
+4. The haemoglobin genes stand out. These genes are extremely highly expressed, meaning that they likely saturate the 6 bp UMIs and which leads to the strange relationship between the UMI counts and the read counts for these genes.
+
+Rather than looking at all samples and all genes at once, can also examine the relationship between UMI counts and read counts within a single sample across genes (Figure \@ref(fig:within-sample-cors)) and within a single gene across samples (Figure \@ref(fig:within-gene-cors)).
+
+```{r}
+x <- log2(as.matrix(assay(sce, "UMI_counts")) + 1)
+y <- log2(as.matrix(assay(sce, "read_counts")) + 1)
+
+cor_j <- diag(cor(x, y))
+# NOTE: Splitting up the cor() computations is a hack to improve speed whilst 
+#       keeping memory usage somewhat under control.
+b <- 1000
+s <- seq(1, by = b, to = nrow(sce))
+e <- pmin(s + b - 1, nrow(sce))
+cor_i <- unlist(
+  Map(
+    f = function(ss, ee ) diag(cor(t(x[ss:ee, ]), t(y[ss:ee, ]))),
+    ss = s,
+    ee = e))
+```
+
+These figures show that the UMI counts and read counts are highly correlated across both samples (median = `r round(median(cor_j, na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_j, na.rm = TRUE), 2)`) and genes (median = `r round(median(cor_i, na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_i, na.rm = TRUE), 2)`).
+
+<aside>
+The genes with the lowest correlations are the aforementioned highly-expressed haemoglobin subunits.
+</aside>
+
+```{r within-sample-cors, fig.cap = "Association between UMI counts and read counts for each gene within each sample. The first 8 panels are scatter plots of the UMI counts and read counts for each gene for the samples with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all samples.", fig.asp = 1}
+par(mfrow = c(3, 3), cex = 0.5)
+jj <- names(sort(cor_j)[c(1:3, 195:196, 390:392)])
+for (j in jj) {
+  g <- rownames(sce)
+  plot(
+    x = x[, j],
+    y = y[, j],
+    pch = ".",
+    cex = ifelse(g %in% hemo_set, 5, 1),
+    col = ifelse(g %in% hemo_set, "red", "black"),
+    sub = paste0("r = ", round(cor_j[j], 3)),
+    xlab = expression(log[2](UMIs + 1)),
+    ylab = expression(log[2](reads + 1)),
+    main = j,
+    xlim = c(0, max(x)),
+    ylim = c(0, max(y)))
+  abline(a = 0, b = 1, col = "grey", lty = 2)
+}
+plot(
+  density(cor_j, na.rm = TRUE, from = -1, to = 1),
+  main = "All samples", 
+  xlab = expression(r[p]))
+```
+
+```{r within-gene-cors, fig.cap = "Association between UMI counts and read counts for each sample within each gene. The first 8 panels are scatter plots of the UMI counts and read counts for each sample for the genes with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all genes.", fig.asp = 1}
+par(mfrow = c(3, 3), cex = 0.5)
+# NOTE: There are some NA correlations, so this changes ii.
+ii <- names(sort(cor_i)[c(1:3, 16421:16422, 32849:32851)])
+for (i in ii) {
+  g <- i
+  plot(
+    x = x[i, ],
+    y = y[i, ],
+    pch = 16,
+    col = ifelse(g %in% hemo_set, "red", "black"),
+    sub = paste0("r = ", round(cor_i[i], 3)),
+    xlab = expression(log[2](UMIs + 1)),
+    ylab = expression(log[2](reads + 1)),
+    main = i,
+    xlim = c(0, max(x)),
+    ylim = c(0, max(y)))
+  abline(a = 0, b = 1, col = "grey", lty = 2)
+}
+plot(
+  density(cor_i, na.rm = TRUE, from = -1, to = 1),
+  main = "All genes", 
+  xlab = expression(r[p]))
+
+# Sanity check
+stopifnot(identical(names(sort(cor_i))[1:3], c("HBA1", "HBB", "HBA2")))
+```
+
+### Summary
+
+As there are so few read counts that exceed the threshold of $4^6 = 4096$ there is little risk that the expression measurements are artificially truncated by using the UMI counts.
+Additionally, compared to the read counts, the UMI counts have the advantage that they mitigate the effects of PCR amplification noise.
+We therefore opt to use the UMI counts in all the analysis the follows.
+
+```{r}
+assay(sce, "counts") <- assay(sce, "UMI_counts")
+```
+
+## Batch effect stuff
+
+**TODO** Move this to after QC.
+
+### Motivation
+
+**TODO**: Were the 2 `plate_number` separate library preps or is one a re-sequenced technical replicate? That is, might there be double counting of UMIs across `plate_number`?
+
+### Analysis
+
+Figure \@ref(fig:umi-scatterplot-and-ma-plot) plots the relationship between the log-counts per million (logCPM) of the UMI counts in each batch for all genes and samples at the sample level and aggregated at the plate level.
+
+```{r umi-scatterplot-and-ma-plot, fig.cap = "Scatterplot of the logCPM of the UMI counts in each batch for all genes and samples (left) and mean-difference plot of the same data (right) as the sample level (top) and aggregated at the plate level (bottom). The correlation in the scatterplot is reported below the x-axis label. Genes that are haemoglobin subunits are highlighted in red. The blue line is a trend fitted to the mean-differences.", fig.asp = 1}
+tmp <- as.matrix(counts(sce))
+tmp_x <- tmp[, sce$plate_number == "C084_LC475_mini_bulk_back_up_1:10"]
+colnames(tmp_x) <- sub("C084_LC475_mini_bulk_back_up_1.10_", "", colnames(tmp_x))
+tmp_y <- tmp[, sce$plate_number == "LCE_476_BU_8_cycle"]
+colnames(tmp_y) <- sub("LCE_476_BU_8_cycle_", "", colnames(tmp_y)) 
+# Check samples are in same order.
+stopifnot(identical(colnames(tmp_x), colnames(tmp_y)))
+
+# Sample-level data 
+x <- edgeR::cpm(tmp_x, log = TRUE)
+y <- edgeR::cpm(tmp_y, log = TRUE)
+m <- (x + y) / 2
+d <- y - x
+g <- rep(rownames(sce), ncol(tmp) / 2)
+# NOTE: Only showing unique points for plotting speed.
+i <- !duplicated(paste0(x, ".", y))
+
+# Plate level data
+X <- edgeR::cpmByGroup(tmp_x, group = rep(1, ncol(tmp_x)), log = TRUE)
+Y <- edgeR::cpmByGroup(tmp_y, group = rep(1, ncol(tmp_x)), log = TRUE)
+M <- (X + Y) / 2
+D <- Y - X
+G <- rownames(sce)
+# NOTE: Can plot all points because off the aggregation.
+
+par(mfrow = c(2, 2))
+plotWithHighlights(
+  x = x[i],
+  y = y[i],
+  status = g[i] %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  sub = paste0("r = ", round(cor(as.vector(x), as.vector(y)), 3)),
+  main = "Sample level",
+  xlab = "LC475_1:10",
+  ylab = "LCE476")
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plotWithHighlights(
+  x = m[i],
+  y = d[i],
+  status = g[i] %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  main = "Sample level",
+  xlab = "Average logCPM",
+  ylab = "logFC (LCE476 vs. LC475_1:10)",
+  ylim = c(-max(abs(c(d, D))), max(abs(c(d, D)))))
+abline(h = 0, lty = 2, col = "grey")
+l <- lowess(m, d, f = 0.5)
+lines(l, col = "dodgerBlue", lwd = 2)
+
+plotWithHighlights(
+  x = X,
+  y = Y,
+  status = G %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  sub = paste0("r = ", round(cor(as.vector(X), as.vector(Y)), 3)),
+  main = "Plate level",
+  xlab = "LC475_1:10",
+  ylab = "LCE476")
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plotWithHighlights(
+  x = M,
+  y = D,
+  status = G %in% hemo_set, 
+  legend = FALSE,
+  bg.pch = ".",
+  hl.pch = ".",
+  hl.col = "red",
+  hl.cex = 3,
+  main = "Plate level",
+  xlab = "Average logCPM",
+  ylab = "logFC (LCE476 vs. LC475_1:10)",
+  ylim = c(-max(abs(c(d, D))), max(abs(c(d, D)))))
+abline(h = 0, lty = 2, col = "grey")
+l <- lowess(m, d, f = 0.5)
+lines(l, col = "dodgerBlue", lwd = 2)
+```
+
+There are a few notable points about this figure:
+
+1. The UMI counts in each batch are strongly associated.
+2. The majority of log-fold changes between batches are small at both the sample and plate levels.
+    a. At the sample level, `r scales::percent(sum(abs(d) < 0.5) / length(d))` UMI counts have $|logFC| < 0.5$ between batches and only $5\%$ of UMI counts have $|logFC| >$ `r round(quantile(abs(d), 0.95), 2)`.
+    b. At the plate level, `r scales::percent(sum(abs(D) < 0.5) / length(D))` UMI counts have $|logFC| < 0.5$ between batches and only $5\%$ of genes have $|logFC| >$ `r round(quantile(abs(D), 0.95), 2)`.
+3. The haemoglobin subunit genes with lower average expression appear more highly expressed in the `LCE476` plate, whereas those haemoglobin subunit genes with higher average expression appear to not be differentially expressed.
+
+Rather than looking at all samples and all genes at once, can also examine the relationship of UMI counts between batches within a single sample across genes (Figure \@ref(fig:umi-within-sample-cors)) and within a single gene across samples (Figure \@ref(fig:umi-within-gene-cors)).
+
+```{r}
+cor_j <- diag(cor(x = x, y = y))
+# NOTE: Splitting up the cor() computations is a hack to improve speed whilst 
+#       keeping memory usage somewhat under control.
+b <- 1000
+s <- seq(1, by = b, to = nrow(sce))
+e <- pmin(s + b - 1, nrow(sce))
+cor_i <- unlist(
+  Map(
+    f = function(ss, ee ) diag(cor(t(x[ss:ee, ]), t(y[ss:ee, ]))),
+    ss = s,
+    ee = e))
+```
+
+These figures show that the logCPM of the UMI counts are highly correlated within a sample across genes (median = `r round(median(cor_j, na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_j, na.rm = TRUE), 2)`) but almost uncorrelated within a gene across samples (median = `r round(median(cor_i, na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_i, na.rm = TRUE), 2)`).
+The average lack of correlation within each gene across samples is due in large part to the sparsity of counts for the majority of genes.
+If we focus on the $n=$ `r sum(rowSums(counts(sce) > 0) > (0.99 * ncol(sce)))` genes  (`r scales::percent(sum(rowSums(counts(sce) > 0) > (0.99 * ncol(sce))) / nrow(sce), accuracy = 0.1)`) detected in at least $99\%$ of samples, then the correlation increases (median = `r round(median(cor_i[rowSums(counts(sce) > 0) > (0.99 * ncol(sce))], na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_i[rowSums(counts(sce) > 0) > (0.99 * ncol(sce))], na.rm = TRUE), 2)`)
+
+```{r umi-within-sample-cors, fig.cap = "Association of UMI counts between batches for each gene within each sample. The first 8 panels are scatter plots of the UMI counts for each gene for the samples with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all samples.", fig.asp = 1}
+par(mfrow = c(3, 3), cex = 0.5)
+jj <- names(sort(cor_j)[c(1:3, 84:85, 194:196)])
+for (j in jj) {
+  g <- rownames(sce)
+  plot(
+    x = x[, j],
+    y = y[, j],
+    pch = ".",
+    cex = ifelse(g %in% hemo_set, 5, 1),
+    col = ifelse(g %in% hemo_set, "red", "black"),
+    sub = paste0("r = ", round(cor_j[j], 3)),
+    xlab = "LC475_1:10",
+    ylab = "LCE476",
+    main = j)
+  abline(a = 0, b = 1, col = "grey", lty = 2)
+}
+plot(
+  density(cor_j, na.rm = TRUE, from = -1, to = 1),
+  main = "All samples", 
+  xlab = expression(r[p]))
+```
+
+```{r umi-within-gene-cors, fig.cap = "Association of UMI counts between batches for each sample within each gene The first 8 panels are scatter plots of the UMI counts for each sample for the genes with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all samples.", fig.asp = 1}
+par(mfrow = c(3, 3), cex = 0.5)
+# NOTE: There are some NA correlations, so this changes ii.
+ii <- names(sort(cor_i)[c(1:3, 16428:16429, 32855:32857)])
+for (i in ii) {
+  g <- i
+  plot(
+    x = x[i, ],
+    y = y[i, ],
+    pch = 16,
+    col = ifelse(g %in% hemo_set, "red", "black"),
+    sub = paste0("r = ", round(cor_i[i], 3)),
+    xlab = "LC475_1:10",
+    ylab = "LCE476",
+    main = i,
+    xlim = range(c(x[i, ], y[i, ])),
+    ylim = range(c(x[i, ], y[i, ])))
+  abline(a = 0, b = 1, col = "grey", lty = 2)
+}
+plot(
+  density(cor_i, na.rm = TRUE, from = -1, to = 1),
+  main = "All genes", 
+  xlab = expression(r[p]))
+```
+
+#### Sandbox
+
+```{r, fig.asp = 1.1}
+assay(sce, "CPM") <- edgeR::cpm(counts(sce), log = TRUE)
+markers <- scran::findMarkers(assay(sce, "CPM"), groups = sce$plate_number, direction = "up")
+features <- c(rownames(markers[[1]])[1:50], rownames(markers[[2]])[1:50])
+plotHeatmap(sce, features = features, exprs_values = "CPM", cluster_cols = FALSE, colour_columns_by = "plate_number", center = TRUE, symmetric = TRUE, fontsize = 6)
+```
+
+### Summary
+
+**TODO** Write
+
+```{r}
+knitr::knit_exit()
+```
+
+## Incorporating sample-based annotation
+
+### Summary
+
+
+
+# Quality control of samples
+
+## Defining the quality control metrics
+
+## Visualizing the QC metrics
+
+## Identifying outliers by each metric
+
+### Checking for removal of biologically relevant subpopulations
+
+## Summary
+
+# Examining gene-level metrics
+
+## Inspecting the most highly expressed genes
+
+## Filtering out low-abundance genes
+
+# Normalization
+
+## Using the deconvolution method to deal with zero counts?
+
+## Applying the size factors to normalize gene expression?
+
+## TMM?
+
+## Computing separate size factors for spike-in transcripts
+
+# Feature selection?
+
+## Motivation
+
+## Quantifying per-gene variation
+
+- Deviance?
+
+### Variance of the log-counts
+
+### Quantifying technical noise
+
+### Accounting for blocking factors
+
+## Selecting highly variable genes (HVGs)?
+
+### Exclusion of ribosomal protein and mitochondrial genes from HVGs?
+
+## Summary
+
+# Dimensionality reduction
+
+## Principal component analysis
+
+## Dimensionality reduction for visualization
+
+## Summary
+
+# Figure 1
+
+# Figure 2
+
+# Figure 3
+
+# Figure 4
