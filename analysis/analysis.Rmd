@@ -165,12 +165,17 @@ hemo_set <- rownames(sce)[
   any(grepl("hemoglobin subunit", rowData(sce)$NCBI.GENENAME))]
 ```
 
-## Failure of `LCE475`
+## Incorporating sample-based annotation
+
+**TODO**: Incorporate updated sample sheet.
+
+# Failure of `LCE475`
 
 There are 3 batches of samples in total - `r glue::glue_collapse(unique(sce$plate_number), sep = ", ", last = ", and ")` - and these are technical replicates of one another (i.e. each well contains the same sample across all 3 batches).
-This was not the original plan.
+However, this was not the original plan.
 
-The `LCE475` batch was intended to be the only batch, but something went wrong in the library preparation or sequencing and it generated very few reads (maximum library size in reads = `r max(colSums(assay(sce, "read_counts")[, sce$plate_number == "LCE475"]))`).
+The `LCE475` batch was intended to be the only batch, but something went wrong in the library preparation and it generated very few reads (maximum library size in reads = `r max(colSums(assay(sce, "read_counts")[, sce$plate_number == "LCE475"]))`).
+Likely what happened, according to Daniel Brown, is that there was carry-over of a large number of molecules without adapters, which meant that the `LCE475` library contained few sequence-able molecules.
 We therefore remove the `LCE475` samples from further analysis.
 
 ```{r}
@@ -179,14 +184,143 @@ sce <- sce[, sce$plate_number != "LCE475"]
 
 Following the failure of `LCE475`, the library preparation and sequencing were repeated a further 2 times:
 
-- `C084_LC475_mini_bulk_back_up_1:10`: A 1:10 dilution of the material on `LCE475`
-- `LCE_476_BU_8_cycle`: 8 cycles of PCR
+- `C084_LC475_mini_bulk_back_up_1:10`: **TODO** Get description of what was done to this plate.
+- `LCE_476_BU_8_cycle`: **TODO** Get description of what was done to this plate. 
 
-**TODO** Get a proper description of how these two plates were prepared.
+These two plates are essentially technical replicates.
 
-## UMI counts vs. read counts
+# Have we sequenced enough?
 
-### Motivation
+## Motivation
+
+**TODO**: Spiel about whether we've sequenced enough.
+
+## Analysis
+
+```{r, fig.asp = 1 / 2}
+reads_ls <- log10(colSums(assay(sce, "read_counts")))
+par(mfrow = c(1, 2))
+plot(
+  density(
+    reads_ls[sce$plate_number == "C084_LC475_mini_bulk_back_up_1:10"]),
+  xlab = expression(log[10](n[reads])),
+  main = "C084_LC475_mini_bulk_back_up_1:10",
+  ylab = "density",
+  xlim = range(reads_ls))
+plot(
+  density(
+    reads_ls[sce$plate_number == "LCE_476_BU_8_cycle"]),
+  xlab = expression(log[10](n[reads])),
+  main = "LCE_476_BU_8_cycle",
+  ylab = "density",
+  xlim = range(reads_ls))
+```
+
+```{r, fig.asp = 1 / 2}
+haem_prop <- colSums(assay(sce, "read_counts")[hemo_set, ]) / 10 ^ reads_ls
+par(mfrow = c(1, 2))
+plot(
+  density(
+    haem_prop[sce$plate_number == "C084_LC475_mini_bulk_back_up_1:10"],
+    from = 0,
+    to = 1),
+  xlab = expression(prop[hemo]),
+  main = "C084_LC475_mini_bulk_back_up_1:10",
+  ylab = "density",
+  xlim = c(0, 1))
+plot(
+  density(
+    haem_prop[sce$plate_number == "LCE_476_BU_8_cycle"],
+    from = 0,
+    to = 1),
+  xlab = expression(prop[hemo]),
+  main = "LCE_476_BU_8_cycle",
+  ylab = "density",
+  xlim = c(0, 1))
+```
+
+10X use a [formula to quantify the sequencing saturation](https://kb.10xgenomics.com/hc/en-us/articles/115003646912-How-is-sequencing-saturation-calculated-): 
+
+> 1 - (n_deduped_reads / n_reads)
+
+```{r, fig.asp = 3 / 2}
+saturation <- 1 - 
+  (colSums(assay(sce, "UMI_counts")) / colSums(assay(sce, "read_counts")))
+saturation_hemo <- 1 - 
+  (colSums(assay(sce, "UMI_counts")[hemo_set, ]) /
+     colSums(assay(sce, "read_counts")[hemo_set, ]))
+saturation_no_hemo <- 1 - 
+  (colSums(assay(sce, "UMI_counts")[setdiff(rownames(sce), hemo_set), ]) /
+     colSums(assay(sce, "read_counts")[setdiff(rownames(sce), hemo_set), ]))
+
+par(mfrow = c(3, 2))
+plot(
+  density(
+    saturation[sce$plate_number == "C084_LC475_mini_bulk_back_up_1:10"],
+    from = 0,
+    to = 1),
+  xlab = "saturation",
+  main = "C084_LC475_mini_bulk_back_up_1:10",
+  ylab = "density",
+  xlim = c(0, 1),
+  sub = "All genes")
+plot(
+  density(
+    saturation[sce$plate_number == "LCE_476_BU_8_cycle"],
+    from = 0,
+    to = 1),
+  xlab = "saturation",
+  main = "LCE_476_BU_8_cycle",
+  ylab = "density",
+  xlim = c(0, 1),
+  sub = "All genes")
+plot(
+  density(
+    saturation_no_hemo[sce$plate_number == "C084_LC475_mini_bulk_back_up_1:10"],
+    from = 0,
+    to = 1),
+  xlab = "saturation",
+  main = "C084_LC475_mini_bulk_back_up_1:10",
+  ylab = "density",
+  xlim = c(0, 1),
+  sub = "No heaemoglobin subunits")
+plot(
+  density(
+    saturation_no_hemo[sce$plate_number == "LCE_476_BU_8_cycle"],
+    from = 0,
+    to = 1),
+  xlab = "saturation",
+  main = "LCE_476_BU_8_cycle",
+  ylab = "density",
+  xlim = c(0, 1),
+  sub = "No heaemoglobin subunits")
+plot(
+  density(
+    saturation_hemo[sce$plate_number == "C084_LC475_mini_bulk_back_up_1:10"],
+    from = 0,
+    to = 1),
+  xlab = "saturation",
+  main = "C084_LC475_mini_bulk_back_up_1:10",
+  ylab = "density",
+  xlim = c(0, 1),
+  sub = "Heaemoglobin subunits")
+plot(
+  density(
+    saturation_hemo[sce$plate_number == "LCE_476_BU_8_cycle"],
+    from = 0,
+    to = 1),
+  xlab = "saturation",
+  main = "LCE_476_BU_8_cycle",
+  ylab = "density",
+  xlim = c(0, 1),
+  sub = "Heaemoglobin subunits")
+```
+
+## Summary
+
+# UMI counts vs. read counts
+
+## Motivation
 
 A unique feature of SCORE's 'mini-bulk' RNA-sequencing protocol is the incorporation of unique molecular identifiers (UMIs) into the library preparation; an ordinary bulk RNA-seq protocol does not incorporate UMIs.
 
@@ -218,7 +352,7 @@ To investigate whether expression measurements are being 'truncated' in this dat
 1. UMI counts (i.e. deduplicating UMI counts)
 2. Read counts (i.e. not deduplicating UMI counts, equivalent to ignoring the UMIs)
 
-### Analysis
+## Analysis
 
 ```{r read-distribution, fig.cap = "Distribution of the logarithm of the read counts as density plot (left) and empirical cumulative distribution function (right). A count of 1 is added to each UMI count to avoid taking the logarithm of zero. The orange vertical line denotes $4^6 = 4096$.", fig.asp = 1 / 2}
 x <- as.vector(assay(sce, "read_counts")) + 1
@@ -489,7 +623,7 @@ plot(
 stopifnot(identical(names(sort(cor_i))[1:3], c("HBA1", "HBB", "HBA2")))
 ```
 
-### Summary
+## Summary
 
 As there are so few read counts that exceed the threshold of $4^6 = 4096$ there is little risk that the expression measurements are artificially truncated by using the UMI counts.
 Additionally, compared to the read counts, the UMI counts have the advantage that they mitigate the effects of PCR amplification noise.
@@ -498,6 +632,10 @@ We therefore opt to use the UMI counts in all the analysis the follows.
 ```{r}
 assay(sce, "counts") <- assay(sce, "UMI_counts")
 ```
+
+# Quality control of samples
+
+- Danny and Daniel expect the plate with more PCR will have more genes
 
 ## Batch effect stuff
 
@@ -695,14 +833,6 @@ plotHeatmap(sce, features = features, exprs_values = "CPM", cluster_cols = FALSE
 ```{r}
 knitr::knit_exit()
 ```
-
-## Incorporating sample-based annotation
-
-### Summary
-
-
-
-# Quality control of samples
 
 ## Defining the quality control metrics
 
