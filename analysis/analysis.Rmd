@@ -628,7 +628,7 @@ cor_i <- unlist(
 ```
 
 These figures show that the logCPM of the UMI counts are highly correlated within a sample across genes (median = `r round(median(cor_j, na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_j, na.rm = TRUE), 2)`) but almost uncorrelated within a gene across samples (median = `r round(median(cor_i, na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_i, na.rm = TRUE), 2)`).
-The average lack of correlation within each gene across samples is due in large part to the sparsity of counts for the majority of genes.
+The average lack of correlation within each gene across samples is often due to a minority of samples with very discordant UMI counts in each batch and the overall sparsity of counts for the majority of genes.
 If we focus on the $n=$ `r sum(rowSums(counts(sce) > 0) > (0.99 * ncol(sce)))` genes  (`r scales::percent(sum(rowSums(counts(sce) > 0) > (0.99 * ncol(sce))) / nrow(sce), accuracy = 0.1)`) detected in at least $99\%$ of samples, then the correlation increases (median = `r round(median(cor_i[rowSums(counts(sce) > 0) > (0.99 * ncol(sce))], na.rm = TRUE), 2)`, median absolute deviation = `r round(mad(cor_i[rowSums(counts(sce) > 0) > (0.99 * ncol(sce))], na.rm = TRUE), 2)`)
 
 ```{r umi-within-sample-cors, fig.cap = "Association of UMI counts between batches for each gene within each sample. The first 8 panels are scatter plots of the UMI counts for each gene for the samples with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all samples.", fig.asp = 1}
