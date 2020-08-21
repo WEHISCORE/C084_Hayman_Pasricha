@@ -1,0 +1,14 @@
+---
+title: "Multi-sample comparisons of the Hayman/Pasricha (C084) ZIPT mini-bulk data set"
+description: |
+author:
+  - name: Peter Hickey
+    url: https://peterhickey.org
+    affiliation: WEHI SCORE
+    affiliation_url: https://www.wehi.edu.au/people/shalin-naik/3310/score
+date: "`r Sys.Date()`"
+output: distill::distill_article
+editor_options:
+  chunk_output_type: console
+bibliography: ref.bib
+---
