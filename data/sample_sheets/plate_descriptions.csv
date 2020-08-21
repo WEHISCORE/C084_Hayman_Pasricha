@@ -1,0 +1,7 @@
+"Sample","# MPCR cycles","RPI #","Sequence","NNXXX sequencing run"
+"LC475 mini bulk original (50ng/uL)",8,"RPI 10 ","TAGCTT ","Not used"
+"LC475 mini bulk back up 1:10 dilution ",11,"RPI 9","GATCAG ","NN179, NN181 & NN183"
+"LC475 mini bulk back up 1:100 dilution",11,"RPI 8","ACTTGA ","NN181"
+"LC475 mini bulk back up 1:1000 dilution",11,"RPI 3","TTAGGC","NN181"
+"LC476 mini bulk original (1ng/uL)",10,"RPI 7","CAGATC","Not used"
+"LC476 mini bulk original (1ng/uL)",8,"RPI 4","TGACCA","NN181 & NN183"
