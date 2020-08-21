@@ -174,18 +174,60 @@ In particular, we include all the sample metadata provided by Tom in the [`data/
 sample_metadata <- readxl::read_excel(
   here("data/sample_sheets/ZIPT metadata.xlsx"))
 
+keep_coldata_columns <-  c(
+  "plate_number", "well_position", "c_rt1_primer_name",
+  "rd1_index_cell_index_index_sequence_as_in_c_rt1_primer",
+  "illumina_index_index_number_separate_index_read",
+  "illumina_index_index_sequence_separate_index_read",
+  "rt1_index_primer_sequences",
+  "well_position_in_original_dilution_layout", "sequencing_run", "id", "group",
+  "collection_date", "sample_serum", "rna", "cytof_1", "cytof_2",
+  "location_box", "position", "timepoint")
 new_colData <- as(
   dplyr::inner_join(
-    as.data.frame(colData(sce)),
+    as.data.frame(colData(sce)[, keep_coldata_columns]),
     sample_metadata,
     by = c("id" = "ID")),
   "DataFrame")
-# TODO: Make some columns into factors
+
+# Drop redundant columns.
+stopifnot(identical(new_colData[["group"]], new_colData[["Group"]]))
+new_colData[["Group"]] <- NULL
+
+# Manually tweak some column types.
+new_colData[["plate_number"]] <- factor(new_colData[["plate_number"]])
+new_colData[["sequencing_run"]] <- factor(new_colData[["sequencing_run"]])
+new_colData[["id"]] <- factor(new_colData[["id"]])
+new_colData[["group"]] <- factor(new_colData[["group"]])
+new_colData[["sex"]] <- factor(new_colData[["sex"]])
+new_colData[["AnyDiarrhea2wk0"]] <- as.logical(new_colData[["AnyDiarrhea2wk0"]])
+new_colData[["AnyDiarrhea2wk24"]] <- as.logical(
+  new_colData[["AnyDiarrhea2wk24"]])
+new_colData[["Wasted0"]] <- as.logical(new_colData[["Wasted0"]])
+new_colData[["Wasted12"]] <- as.logical(new_colData[["Wasted12"]])
+new_colData[["Wasted24"]] <- as.logical(new_colData[["Wasted24"]])
+new_colData[["Stunted0"]] <- as.logical(new_colData[["Stunted0"]])
+new_colData[["Stunted12"]] <- as.logical(new_colData[["Stunted12"]])
+new_colData[["Stunted24"]] <- as.logical(new_colData[["Stunted24"]])
+
 colData(sce) <- new_colData
 ```
 
+The complete sample metadata is shown below.
+
 ```{r}
-# TODO: Useful colours
+paged_table(sample_metadata)
+```
+
+The table below summarises the number of samples in each experimental group at each timepoint (samples are paired between timepoints).
+
+```{r}
+as.data.frame(colData(sce)) %>%
+  # NOTE: The plates technical triplicates, so it suffices to look at a single 
+  #       plate.
+  dplyr::filter(plate_number == "LCE475") %>%
+  janitor::tabyl(group, timepoint) %>%
+  knitr::kable(caption = "Number of samples per group/timepoint.")
 ```
 
 # Failure of `LCE475`
@@ -199,6 +241,7 @@ We therefore remove the `LCE475` batch from further analysis.
 
 ```{r}
 sce <- sce[, sce$plate_number != "LCE475"]
+colData(sce) <- droplevels(colData(sce))
 ```
 
 Following the failure of `LCE475`, the library preparation was repeated several times, documented in the table below^[Table provided by Tracey Baldwin ([2020-08-11 on MS Teams](https://teams.microsoft.com/l/message/19:37f4d7eed15843cfade0a7855f6acb37@thread.skype/1597130506674?tenantId=aa7c72e2-c5cf-4a40-a22a-a585c04ca07c&groupId=864577ca-cf80-43f9-978d-10f80251cbde&parentMessageId=1596777680068&teamName=SCORE&channelName=General&createdTime=1597130506674))].
@@ -210,21 +253,34 @@ plate_descriptions_df <- read.csv(
     janitor::clean_names()
 knitr::kable(
   plate_descriptions_df,
-  caption = "Desrcriptions of additional library preparations.")
+  caption = "Descriptions of additional library preparations.")
 ```
 
-Ultimately, the 'LC475 mini bulk back up 1:10 dilution' (henceforth abbreviate to `LC475`) and 'LC476 mini bulk original (1ng/uL)' (henceforth abbreviate to `LC476`) library preparations were taken forward and sequenced in run `NN183`.
+Ultimately, the 'LC475 mini bulk back up 1:10 dilution' (`C084_LC475_mini_bulk_back_up_1:10`; henceforth abbreviate to `LC475`) and 'LC476 mini bulk original (1ng/uL)' (`LCE_476_BU_8_cycle`; henceforth abbreviate to `LC476`) library preparations were taken forward and sequenced in run `NN183`.
 
 ```{r}
+# Rename plates and samples.
 sce$plate_number <- factor(
   ifelse(sce$plate_number == "LCE_476_BU_8_cycle", "LC476", "LC475"))
 colnames(sce) <- paste0(paste0(sce$plate_number, "_", sce$well_position))
-```
 
-```{r}
 # Some useful colours
-plate_number_colours <- c("LC475" = "dodgerBlue", "LC476" = "orange")
+plate_number_colours <- setNames(
+  palette.colors(9)[1:2],
+  levels(sce$plate_number))[seq_len(nlevels(sce$plate_number))]
 sce$plate_number_colours <- plate_number_colours[sce$plate_number]
+group_colours <- setNames(
+  palette.colors(9)[3:5],  
+  levels(sce$group))
+sce$group_colours <- group_colours[sce$group]
+timepoint_colours <- setNames(
+  palette.colors(9)[6:7],  
+  levels(sce$timepoint))
+sce$timepoint_colours <- timepoint_colours[timepoint_colours]
+sex_colours <- setNames(
+  RColorBrewer::brewer.pal(4, "Set1")[1:2],
+  levels(sce$sex))
+sce$sex_colours <- sex_colours[sce$sex]
 ```
 
 # Have we sequenced enough?
@@ -351,7 +407,7 @@ plot(
   main = "LC475",
   ylab = "density",
   xlim = c(0, 1),
-  sub = "No heaemoglobin subunits")
+  sub = "No hemoglobin subunits")
 plot(
   density(
     saturation_no_hemo[sce$plate_number == "LC476"],
@@ -361,7 +417,7 @@ plot(
   main = "LC476",
   ylab = "density",
   xlim = c(0, 1),
-  sub = "No heaemoglobin subunits")
+  sub = "No hemoglobin subunits")
 plot(
   density(
     saturation_hemo[sce$plate_number == "LC475"],
@@ -371,7 +427,7 @@ plot(
   main = "LC475",
   ylab = "density",
   xlim = c(0, 1),
-  sub = "Heaemoglobin subunits")
+  sub = "Hemoglobin subunits")
 plot(
   density(
     saturation_hemo[sce$plate_number == "LC476"],
@@ -381,7 +437,7 @@ plot(
   main = "LC476",
   ylab = "density",
   xlim = c(0, 1),
-  sub = "Heaemoglobin subunits")
+  sub = "Hemoglobin subunits")
 ```
 
 ## Summary
@@ -938,7 +994,7 @@ both_dropped <- intersect(lc475_dropped, lc476_dropped)
 stopifnot(identical(lc475_dropped, lc476_dropped))
 ```
 
-The same `r length(both_dropped)` samples excluded from both plates (`r glue::glue_collapse(both_dropped, sep = ", ", last = " and ")`), which likely indicates an underlying issue with the quality of these samples
+The same `r length(both_dropped)` samples excluded from both plates (`r glue::glue_collapse(both_dropped, sep = ", ", last = " and ")`), which likely indicates an underlying issue with the quality of these samples.
 
 ## Summary
 
@@ -1007,22 +1063,20 @@ plot_grid(
   align = "v")
 ```
 
-**TODO** Figure \@ref(fig: breakdown-by-plate-number-post-qc) and its predecessor.
-
 # Examining gene-level metrics
 
 ## Inspecting the most highly expressed genes
 
 Figure \@ref(fig:topgenes) shows the most highly expressed genes in the dataset.
-Many of these genes are mitochondrial genes, ribosomal protein, and pseudogenes.
+Many of these genes are hemoglobin subunit genes, mitochondrial genes, and ribosomal protein.
 
 ```{r topgenes, fig.asp = 1, fig.cap = "Percentage of total counts assigned to the top 50 most highly-abundant features in the data set. For each feature, each bar represents the percentage assigned to that feature for a single sample, while the circle represents the average across all samples. Bars are coloured by the total number of expressed features in each samples, while circles are coloured according to whether the feature is labelled as a control feature."}
 plotHighestExprs(sce, n = 50)
 ```
 
-Figure \@ref(fig:topgenes-filtered) shows the most highly expressed after excluding the mitochondrial genes, ribosomal protein, and hemoglobin subunit genes.
+Figure \@ref(fig:topgenes-filtered) shows the most highly expressed after excluding the hemoglobin subunit genes, mitochondrial genes, and ribosomal protein.
 
-```{r topgenes-filtered, fig.asp = 1, fig.cap = "Percentage of total counts assigned to the top 50 most highly-abundant features (after excluding mitochondrial genes, ribosomal protein, and hemoglobin subunut genes) in the data set. For each feature, each bar represents the percentage assigned to that feature for a single sample, while the circle represents the average across all samples. Bars are coloured by the total number of expressed features in each sample, while circles are coloured according to whether the feature is labelled as a control feature."}
+```{r topgenes-filtered, fig.asp = 1, fig.cap = "Percentage of total counts assigned to the top 50 most highly-abundant features (after excluding hemoglobin subunit genes, mitochondrial genes, and ribosomal protein genes) in the data set. For each feature, each bar represents the percentage assigned to that feature for a single sample, while the circle represents the average across all samples. Bars are coloured by the total number of expressed features in each sample, while circles are coloured according to whether the feature is labelled as a control feature."}
 plotHighestExprs(
   sce, 
   drop_features = c(mito_set, ribo_set, hemo_set),
