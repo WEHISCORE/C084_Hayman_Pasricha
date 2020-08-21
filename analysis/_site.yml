@@ -1,0 +1,26 @@
+name: "C084_Hayman_Pasricha"
+output_dir: "../docs"
+navbar:
+  title: "C075"
+  left:
+    - text: "Introduction"
+      href: index.html
+    - text: "Preprocessing"
+      href: C084_Hayman_Pasricha.preprocess.html
+    - text: "Differential analyses"
+      href: C084_Hayman_Pasricha.multi-sample_comparisons.html
+    - text: "Supplementary files"
+      menu:
+        - text: "scPipe reports"
+          href: ../output/scPipe/
+        - text: "Differentially expressed genes"
+          href: ../output/DEGs/
+        - text: "Glimma plots"
+          href: ../output/glimma-plots/
+  right:
+    - icon: fa-github
+      href: https://github.com/WEHISCORE/C084_Hayman_Pasricha
+output:
+  distill::distill_article:
+    toc: true
+    toc_depth: 3
