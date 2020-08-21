@@ -1,7 +1,7 @@
 name: "C084_Hayman_Pasricha"
 output_dir: "../docs"
 navbar:
-  title: "C075"
+  title: "C084"
   left:
     - text: "Introduction"
       href: index.html
