@@ -1,0 +1,29 @@
+---
+title: "Analysis of the Hayman/Pasricha (C084) ZIPT mini-bulk data set"
+description: |
+author:
+  - name: Peter Hickey 
+    url: https://peterhickey.org
+    affiliation: Single Cell Open Research Endeavour (SCORE), WEHI
+    affiliation_url: https://www.wehi.edu.au/people/shalin-naik/3310/score
+date: "`r Sys.Date()`"
+output: distill::distill_article
+editor_options: 
+  chunk_output_type: console
+bibliography: ref.bib
+---
+
+# Overview
+
+In this analysis, **TODO** Write overview.
+
+After sequencing, expression was quantified by counting the number of UMIs mapped to each gene using `r BiocStyle::Biocpkg("scPipe")`[@tian2018scpipe].
+Count data for all endogeneous genes (GENCODE Release 28 (GRCh38.p12)) and spike-in transcripts (ERCC) are available in this repository.
+
+This analysis is adapted from the [**Orchestrating Single-Cell Analysis with Bioconductor** book](https://osca.bioconductor.org) and the [**RNA-seq analysis is easy as 1-2-3 with limma, Glimma and edgeR** workflow](https://bioconductor.org/packages/RNAseq123/) [@law2016rna].
+
+# Analysis version information  {.appendix}
+
+**R version**: `r R.version.string`
+
+**Bioconductor version**: `r BiocManager::version()`
