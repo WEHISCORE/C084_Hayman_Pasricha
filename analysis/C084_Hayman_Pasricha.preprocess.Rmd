@@ -190,15 +190,17 @@ new_colData <- as(
     by = c("id" = "ID")),
   "DataFrame")
 
-# Drop redundant columns.
+# Drop redundant columns and rename 'group'.
 stopifnot(identical(new_colData[["group"]], new_colData[["Group"]]))
+new_colData[["treatment"]] <- factor(new_colData[["group"]])
 new_colData[["Group"]] <- NULL
+new_colData[["group"]] <- NULL
 
 # Manually tweak some column types.
 new_colData[["plate_number"]] <- factor(new_colData[["plate_number"]])
 new_colData[["sequencing_run"]] <- factor(new_colData[["sequencing_run"]])
 new_colData[["id"]] <- factor(new_colData[["id"]])
-new_colData[["group"]] <- factor(new_colData[["group"]])
+
 new_colData[["sex"]] <- factor(new_colData[["sex"]])
 new_colData[["AnyDiarrhea2wk0"]] <- as.logical(new_colData[["AnyDiarrhea2wk0"]])
 new_colData[["AnyDiarrhea2wk24"]] <- as.logical(
@@ -226,8 +228,8 @@ as.data.frame(colData(sce)) %>%
   # NOTE: The plates technical triplicates, so it suffices to look at a single 
   #       plate.
   dplyr::filter(plate_number == "LCE475") %>%
-  janitor::tabyl(group, timepoint) %>%
-  knitr::kable(caption = "Number of samples per group/timepoint.")
+  janitor::tabyl(treatment, timepoint) %>%
+  knitr::kable(caption = "Number of samples per treatment group/timepoint.")
 ```
 
 # Failure of `LCE475`
@@ -269,14 +271,14 @@ plate_number_colours <- setNames(
   palette.colors(9)[1:2],
   levels(sce$plate_number))[seq_len(nlevels(sce$plate_number))]
 sce$plate_number_colours <- plate_number_colours[sce$plate_number]
-group_colours <- setNames(
+treatment_colours <- setNames(
   palette.colors(9)[3:5],  
-  levels(sce$group))
-sce$group_colours <- group_colours[sce$group]
+  levels(sce$treatment))
+sce$treatment_colours <- treatment_colours[sce$treatment]
 timepoint_colours <- setNames(
   palette.colors(9)[6:7],  
   levels(sce$timepoint))
-sce$timepoint_colours <- timepoint_colours[timepoint_colours]
+sce$timepoint_colours <- timepoint_colours[sce$timepoint]
 sex_colours <- setNames(
   RColorBrewer::brewer.pal(4, "Set1")[1:2],
   levels(sce$sex))
@@ -457,6 +459,8 @@ However, remember that in doing further sequencing we will still be 'paying the 
 
 An alternative to simply re-sequencing the existing library may be to first perform a technique like 'DASH', which uses "recombinant Cas9 protein complexed with a library of guide RNAs targeting unwanted species for cleavage, thus preventing them from consuming sequencing space" [@gu2016depletion].
 The feasibility/suitability of using such a technique for this project would require further discussion with SCORE.
+
+**TODO** Mention globinzero (https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/ribosomal-depletion/globin-zero-gold/globin-zero-gold-reference-guide-15066013-02.pdf)?
 
 # UMI counts vs. read counts
 
