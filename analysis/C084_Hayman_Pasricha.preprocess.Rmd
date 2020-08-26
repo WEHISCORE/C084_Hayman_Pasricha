@@ -201,7 +201,7 @@ new_colData[["plate_number"]] <- factor(new_colData[["plate_number"]])
 new_colData[["sequencing_run"]] <- factor(new_colData[["sequencing_run"]])
 new_colData[["id"]] <- factor(new_colData[["id"]])
 
-new_colData[["sex"]] <- factor(new_colData[["sex"]])
+new_colData[["sex"]] <- factor(ifelse(new_colData[["sex"]] == "1", "M", "F"))
 new_colData[["AnyDiarrhea2wk0"]] <- as.logical(new_colData[["AnyDiarrhea2wk0"]])
 new_colData[["AnyDiarrhea2wk24"]] <- as.logical(
   new_colData[["AnyDiarrhea2wk24"]])
