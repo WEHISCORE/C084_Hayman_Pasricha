@@ -153,3 +153,161 @@ flattenDF <- function(x, sep = "; ") {
     }),
     row.names = rownames(x))
 }
+
+# NOTE: This function is customised for the C084_Hayman_Pasricha project.
+createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
+
+  message("Creating CSVs of DEGs")
+  for (label in colnames(efit)) {
+    message("\t", label)
+    gzout <- gzfile(
+      description = file.path(outdir, paste0(label, ".DEGs.csv.gz")),
+      open = "wb")
+    write.csv(
+      topTable(efit, coef = label, n = Inf),
+      gzout,
+      # NOTE: quote = TRUE needed because some fields contain commas.
+      quote = TRUE,
+      row.names = FALSE)
+    close(gzout)
+  }
+
+  # NOTE: Doesn't make sense to create Venn diagram if there's only one
+  #       contrasts
+  if (ncol(efit) > 1) {
+    message("Creating Venn diagram")
+    dt <- decideTests(efit)
+    par(mfrow = c(1, 1))
+    pdf(
+      here("output", "DEGs", paste0(prefix, ".Venn_diagram.pdf")),
+      width = 7,
+      height = 7)
+    vennDiagram(dt, cex = 0.8)
+    dev.off()
+  } else {
+    message("Skipping Venn diagram")
+  }
+
+  message("Creating heatmaps")
+  for (label in colnames(efit)) {
+    all_features <- rownames(
+      topTable(efit, coef = label, p.value = 0.05, n = Inf))
+    # Filter genes
+    features <- setdiff(
+      all_features,
+      c(mito_set, ribo_set, pseudogene_set, sex_set))
+    # Select top-100
+    features <- head(features, 100)
+    if (length(features) > 1) {
+      mat <- v$E[features, ]
+      # NOTE: Row-normalize within each plate_number
+      mat[, v$targets$plate_number == "LC475"] <-
+        mat[, v$targets$plate_number == "LC475"] -
+        rowMeans(mat[, v$targets$plate_number == "LC475"])
+      mat[, v$targets$plate_number == "LC476"] <-
+        mat[, v$targets$plate_number == "LC476"] -
+        rowMeans(mat[, v$targets$plate_number == "LC476"])
+      pheatmap(
+        mat = mat[, o],
+        color = hcl.colors(101, "Blue-Red 3"),
+        cluster_rows = TRUE,
+        cluster_cols = FALSE,
+        show_colnames = FALSE,
+        annotation_col = data.frame(
+          plate_number = v$targets$plate_number[o],
+          treatment = v$targets$treatment[o],
+          timepoint = v$targets$timepoint[o],
+          sex = v$targets$sex[o],
+          row.names = colnames(v)[o]),
+        annotation_colors = list(
+          plate_number = plate_number_colours,
+          treatment = treatment_colours,
+          timepoint = timepoint_colours,
+          sex = sex_colours),
+        breaks = seq(-max(abs(mat)), max(abs(mat)), length.out = 101),
+        fontsize = 6,
+        gaps_col = cumsum(runLength(Rle(v$targets$plate_number[o]))),
+        main = label,
+        filename = here("output", "DEGs", paste0(label, ".heatmap.pdf")))
+    }
+  }
+
+  message("Creating Glimma plots")
+  for (label in colnames(efit)) {
+    # NOTE: Doesn't make sense to create Glimma plots for numeric covariates.
+    if (label %in% c("HAZ24")) {
+      next
+    }
+    message("\t", label)
+    anno <- cbind(
+      DataFrame(GeneID = rownames(v)),
+      v$genes)
+    colnames(anno) <- sub("ENSEMBL", "ENS", colnames(anno))
+    colnames(anno) <- sub("\\.GENE", "\\.", colnames(anno))
+    Glimma::glMDPlot(
+      x = efit[, label],
+      counts = v,
+      groups = groups,
+      status = decideTests(efit)[, label],
+      main = label,
+      anno = anno,
+      display.columns = c(
+        "GeneID",
+        paste0("ENS.", c("ID", "BIOTYPE", "SEQNAME")),
+        paste0("NCBI.", c("ALIAS", "NAME"))),
+      sample.cols = sample.cols,
+      path = here("output"),
+      html = paste0(label, ".md-plot"),
+      launch = FALSE)
+  }
+
+  message("Creating CSVs of GO and KEGG analyses")
+  for (label in colnames(efit)) {
+    message("\t", label)
+    x <- topTable(efit, coef = label, n = Inf)
+    for (direction in c("up", "down")) {
+      message("\t\t", direction)
+      if (direction == "up") {
+        de <- rownames(x[x$adj.P.Val < 0.05 & x$logFC > 0, ])
+      } else {
+        de <- rownames(x[x$adj.P.Val < 0.05 & x$logFC < 0, ])
+      }
+      if (length(de) == 0) {
+        next
+      }
+      entrez <- unique(unlist(strsplit(efit$genes[de, ]$NCBI.ENTREZID, "; ")))
+      # TODO: Supply universe and if so what?
+      # universe <- na.omit(unique(unlist(strsplit(efit$genes$NCBI.ENTREZID, "; "))))
+
+      # GO
+      go <- limma::goana(entrez, species = "Hs")
+      gzout <- gzfile(
+        description = file.path(
+          outdir,
+          paste0(label, ".", direction, ".GO.csv.gz")),
+        open = "wb")
+      write.csv(
+        go,
+        gzout,
+        # NOTE: quote = TRUE needed because some fields contain commas.
+        quote = TRUE,
+        row.names = TRUE)
+      close(gzout)
+
+      # KEGG
+      kegg <- limma::kegga(entrez, species = "Hs")
+      gzout <- gzfile(
+        description = file.path(
+          outdir,
+          paste0(label, ".", direction, ".KEGG.csv.gz")),
+        open = "wb")
+      write.csv(
+        kegg,
+        gzout,
+        # NOTE: quote = TRUE needed because some fields contain commas.
+        quote = TRUE,
+        row.names = TRUE)
+      close(gzout)
+    }
+  }
+}

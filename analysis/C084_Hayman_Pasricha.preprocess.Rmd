@@ -212,6 +212,21 @@ new_colData[["Stunted0"]] <- as.logical(new_colData[["Stunted0"]])
 new_colData[["Stunted12"]] <- as.logical(new_colData[["Stunted12"]])
 new_colData[["Stunted24"]] <- as.logical(new_colData[["Stunted24"]])
 
+# Needed for DE analysis
+new_colData[["Underweight24"]] <- dplyr::case_when(
+  is.na(new_colData[["WAZ24"]]) ~ NA,
+  new_colData[["WAZ24"]] < -2 ~ TRUE,
+  new_colData[["WAZ24"]] > -2 & new_colData[["WAZ24"]] < 2 ~ FALSE,
+  new_colData[["WAZ24"]] > 2 ~ FALSE)
+new_colData[["Anaemic0"]] <- dplyr::case_when(
+  is.na(new_colData[["hb0"]]) ~ NA,
+  new_colData[["hb0"]] < 11 ~ TRUE,
+  new_colData[["hb0"]] >= 11 ~ FALSE)
+new_colData[["Anaemic24"]] <- dplyr::case_when(
+  is.na(new_colData[["hb24"]]) ~ NA,
+  new_colData[["hb24"]] < 11 ~ TRUE,
+  new_colData[["hb24"]] >= 11 ~ FALSE)
+
 colData(sce) <- new_colData
 ```
 
