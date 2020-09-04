@@ -1082,6 +1082,23 @@ plot_grid(
   align = "v")
 ```
 
+# Sex check
+
+Figure \@ref(fig:sex-check) visualises the expression of *XIST*, a female-specific gene.
+This can be used to confirm the reported sex of the sample and to detect sample mix-ups.
+The female samples have much higher average UMI counts of *XIST* than male samples on, as we would expect, and there are no obvious outliers.
+
+```{r sex-check, fig.cap = "Expression of XIST by sex."}
+plotExpression(
+  sce,
+  "XIST",
+  x = "sex",
+  exprs_values = "counts",
+  colour_by = "sex") + 
+  scale_fill_manual(values = sex_colours) +
+  guides(fill = FALSE)
+```
+
 # Examining gene-level metrics
 
 ## Inspecting the most highly expressed genes
