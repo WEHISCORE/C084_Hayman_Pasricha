@@ -155,13 +155,15 @@ flattenDF <- function(x, sep = "; ") {
 }
 
 # NOTE: This function is customised for the C084_Hayman_Pasricha project.
-createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
+createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.cols) {
 
   message("Creating CSVs of DEGs")
   for (label in colnames(efit)) {
     message("\t", label)
     gzout <- gzfile(
-      description = file.path(outdir, paste0(label, ".DEGs.csv.gz")),
+      description = file.path(
+        outdir,
+        paste(c(label, suffix, "DEGs.csv.gz"), collapse = ".")),
       open = "wb")
     write.csv(
       topTable(efit, coef = label, n = Inf),
@@ -179,7 +181,10 @@ createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
     dt <- decideTests(efit)
     par(mfrow = c(1, 1))
     pdf(
-      here("output", "DEGs", paste0(prefix, ".Venn_diagram.pdf")),
+      here(
+        "output",
+        "DEGs",
+        paste(c(prefix, suffix, "Venn_diagram.pdf"), collapse = ".")),
       width = 7,
       height = 7)
     vennDiagram(dt, cex = 0.8)
@@ -199,14 +204,14 @@ createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
     # Select top-100
     features <- head(features, 100)
     if (length(features) > 1) {
-      mat <- v$E[features, ]
+      mat <- cpm(x, log = TRUE)[features, ]
       # NOTE: Row-normalize within each plate_number
-      mat[, v$targets$plate_number == "LC475"] <-
-        mat[, v$targets$plate_number == "LC475"] -
-        rowMeans(mat[, v$targets$plate_number == "LC475"])
-      mat[, v$targets$plate_number == "LC476"] <-
-        mat[, v$targets$plate_number == "LC476"] -
-        rowMeans(mat[, v$targets$plate_number == "LC476"])
+      mat[, x$samples$plate_number == "LC475"] <-
+        mat[, x$samples$plate_number == "LC475"] -
+        rowMeans(mat[, x$samples$plate_number == "LC475"])
+      mat[, x$samples$plate_number == "LC476"] <-
+        mat[, x$samples$plate_number == "LC476"] -
+        rowMeans(mat[, x$samples$plate_number == "LC476"])
       pheatmap(
         mat = mat[, o],
         color = hcl.colors(101, "Blue-Red 3"),
@@ -214,11 +219,11 @@ createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
         cluster_cols = FALSE,
         show_colnames = FALSE,
         annotation_col = data.frame(
-          plate_number = v$targets$plate_number[o],
-          treatment = v$targets$treatment[o],
-          timepoint = v$targets$timepoint[o],
-          sex = v$targets$sex[o],
-          row.names = colnames(v)[o]),
+          plate_number = x$samples$plate_number[o],
+          treatment = x$samples$treatment[o],
+          timepoint = x$samples$timepoint[o],
+          sex = x$samples$sex[o],
+          row.names = colnames(x)[o]),
         annotation_colors = list(
           plate_number = plate_number_colours,
           treatment = treatment_colours,
@@ -226,29 +231,33 @@ createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
           sex = sex_colours),
         breaks = seq(-max(abs(mat)), max(abs(mat)), length.out = 101),
         fontsize = 6,
-        gaps_col = cumsum(runLength(Rle(v$targets$plate_number[o]))),
+        gaps_col = cumsum(runLength(Rle(x$samples$plate_number[o]))),
         main = label,
-        filename = here("output", "DEGs", paste0(label, ".heatmap.pdf")))
+        filename = here(
+          "output",
+          "DEGs",
+          paste(c(label, suffix, "heatmap.pdf"), collapse = ".")))
     }
   }
 
   message("Creating Glimma plots")
   for (label in colnames(efit)) {
     # NOTE: Doesn't make sense to create Glimma plots for numeric covariates.
-    if (label %in% c("HAZ24")) {
+    if (label %in% c("HAZ24", "WHZ24", "WAZ24", "hb24")) {
       next
     }
     message("\t", label)
     anno <- cbind(
-      DataFrame(GeneID = rownames(v)),
-      v$genes)
+      DataFrame(GeneID = rownames(x)),
+      x$genes)
     colnames(anno) <- sub("ENSEMBL", "ENS", colnames(anno))
     colnames(anno) <- sub("\\.GENE", "\\.", colnames(anno))
     Glimma::glMDPlot(
       x = efit[, label],
-      counts = v,
+      counts = x,
       groups = groups,
       status = decideTests(efit)[, label],
+      transform = TRUE,
       main = label,
       anno = anno,
       display.columns = c(
@@ -257,57 +266,124 @@ createDEGOutputs <- function(outdir, efit, v, prefix, o, groups, sample.cols) {
         paste0("NCBI.", c("ALIAS", "NAME"))),
       sample.cols = sample.cols,
       path = here("output"),
-      html = paste0(label, ".md-plot"),
+      html = paste(c(label, suffix, "md-plot"), collapse = "."),
       launch = FALSE)
   }
 
   message("Creating CSVs of GO and KEGG analyses")
   for (label in colnames(efit)) {
-    message("\t", label)
-    x <- topTable(efit, coef = label, n = Inf)
-    for (direction in c("up", "down")) {
-      message("\t\t", direction)
-      if (direction == "up") {
-        de <- rownames(x[x$adj.P.Val < 0.05 & x$logFC > 0, ])
-      } else {
-        de <- rownames(x[x$adj.P.Val < 0.05 & x$logFC < 0, ])
-      }
-      if (length(de) == 0) {
-        next
-      }
-      entrez <- unique(unlist(strsplit(efit$genes[de, ]$NCBI.ENTREZID, "; ")))
-      # TODO: Supply universe and if so what?
-      # universe <- na.omit(unique(unlist(strsplit(efit$genes$NCBI.ENTREZID, "; "))))
+    # NOTE: Features map to multiple ENTREZID, so just select the first.
+    geneid <- sapply(strsplit(efit$genes$NCBI.ENTREZID, ";"), "[[", 1)
 
-      # GO
-      go <- limma::goana(entrez, species = "Hs")
-      gzout <- gzfile(
-        description = file.path(
-          outdir,
-          paste0(label, ".", direction, ".GO.csv.gz")),
-        open = "wb")
-      write.csv(
-        go,
-        gzout,
-        # NOTE: quote = TRUE needed because some fields contain commas.
-        quote = TRUE,
-        row.names = TRUE)
-      close(gzout)
+    # Run GO analysis
+    go <- limma::goana(efit, coef = label, species = "Hs", geneid = geneid)
 
-      # KEGG
-      kegg <- limma::kegga(entrez, species = "Hs")
-      gzout <- gzfile(
-        description = file.path(
-          outdir,
-          paste0(label, ".", direction, ".KEGG.csv.gz")),
-        open = "wb")
-      write.csv(
-        kegg,
-        gzout,
-        # NOTE: quote = TRUE needed because some fields contain commas.
-        quote = TRUE,
-        row.names = TRUE)
-      close(gzout)
-    }
+    # Get gene symbols associated with each GO term.
+    library(org.Hs.eg.db)
+    go_symbol_df <- select(
+      org.Hs.eg.db,
+      keys = rownames(go),
+      columns = "SYMBOL",
+      # NOTE: `keytype = "GO"` returns 'incomplete' results whereas
+      #       `keytype = "GOALL"` returns the 'complete' results.
+      #       I think this is the same issue described in the goseq vignette
+      #       (section 6.7):
+      #       "It is important to use the org.*.egGO2ALLEGS and NOT the org.*.egGO
+      #       object to create the mapping between GO categories and gene
+      #        identifiers, as the latter does not include the links to genes
+      #        arising from 'child' GO categories."
+      keytype = "GOALL")
+    go_symbol_df <- dplyr::left_join(
+      go_symbol_df,
+      as.data.frame(
+        topTable(
+          efit,
+          coef = label,
+          n = Inf))[, c("logFC", "adj.P.Val", "NCBI.SYMBOL")],
+      by = c("SYMBOL" = "NCBI.SYMBOL"))
+
+    # Extract gene symbols in each GO term that are up- or down-regulated.
+    go <- dplyr::left_join(
+      go %>% tibble::rownames_to_column("GO"),
+      go_symbol_df %>%
+        dplyr::group_by(GOALL) %>%
+        dplyr::summarise(
+          upGeneSymbols =
+            paste(
+              unique(
+                SYMBOL[which(logFC > 0 & adj.P.Val < 0.05)]), collapse = ", "),
+          downGeneSymbols =
+            paste(
+              unique(
+                SYMBOL[which(logFC < 0 & adj.P.Val < 0.05)]), collapse = ", ")),
+      by = c("GO" = "GOALL"))
+    go <- tibble::column_to_rownames(go, "GO")
+
+    # Write output
+    gzout <- gzfile(
+      description = file.path(
+        outdir,
+        paste(c(label, suffix, "GO.csv.gz"), collapse = ".")),
+      open = "wb")
+    write.csv(
+      go,
+      gzout,
+      # NOTE: quote = TRUE needed because some fields contain commas.
+      quote = TRUE,
+      row.names = TRUE)
+    close(gzout)
+
+    # Run KEGG analysis
+    kegg <- kegga(efit, coef = label, species = "Hs", geneid = geneid)
+
+    kegg_symbol_df <- select(
+      org.Hs.eg.db,
+      # NOTE: The org.Hs.eg.db does not use the 'path:hsa'-prefix.
+      keys = sub("path:hsa", "", rownames(kegg)),
+      columns = "SYMBOL",
+      keytype = "PATH")
+    kegg_symbol_df <- dplyr::left_join(
+      kegg_symbol_df,
+      as.data.frame(
+        topTable(
+          efit,
+          coef = label,
+          n = Inf))[, c("logFC", "adj.P.Val", "NCBI.SYMBOL")],
+      by = c("SYMBOL" = "NCBI.SYMBOL"))
+
+    # Extract gene symbols in each KEGG pathway that are up- or down-regulated.
+    kegg <- dplyr::left_join(
+      kegg %>%
+        tibble::rownames_to_column("PATH") %>%
+        dplyr::mutate(PATH = sub("path:hsa", "", PATH)),
+      kegg_symbol_df %>%
+        dplyr::group_by(PATH) %>%
+        dplyr::summarise(
+          upGeneSymbols =
+            paste(
+              unique(
+                SYMBOL[which(logFC > 0 & adj.P.Val < 0.05)]), collapse = ", "),
+          downGeneSymbols =
+            paste(
+              unique(
+                SYMBOL[which(logFC < 0 & adj.P.Val < 0.05)]), collapse = ", ")),
+      by = c("PATH" = "PATH"))
+    kegg <- kegg %>%
+      dplyr::mutate(PATH = paste0("path:hsa", PATH)) %>%
+      tibble::column_to_rownames("PATH")
+
+    # Write output
+    gzout <- gzfile(
+      description = file.path(
+        outdir,
+        paste(c(label, suffix, "KEGG.csv.gz"), collapse = ".")),
+      open = "wb")
+    write.csv(
+      kegg,
+      gzout,
+      # NOTE: quote = TRUE needed because some fields contain commas.
+      quote = TRUE,
+      row.names = TRUE)
+    close(gzout)
   }
 }
