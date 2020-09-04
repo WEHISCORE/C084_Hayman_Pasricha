@@ -24,8 +24,8 @@
   
   
   <!--  https://schema.org/Article -->
-  <meta property="article:published" itemprop="datePublished" content="2020-08-27"/>
-  <meta property="article:created" itemprop="dateCreated" content="2020-08-27"/>
+  <meta property="article:published" itemprop="datePublished" content="2020-09-04"/>
+  <meta property="article:created" itemprop="dateCreated" content="2020-09-04"/>
   <meta name="article:author" content="Peter Hickey"/>
   
   <!--  https://developers.facebook.com/docs/sharing/webmasters#markup -->
@@ -45,7 +45,7 @@
   <!--radix_placeholder_rmarkdown_metadata-->
   
   <script type="text/json" id="radix-rmarkdown-metadata">
-  {"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["title","description","author","date","editor_options","bibliography"]}},"value":[{"type":"character","attributes":{},"value":["Multi-sample comparisons of the Hayman/Pasricha (C084) ZIPT mini-bulk data set"]},{"type":"NULL"},{"type":"list","attributes":{},"value":[{"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["name","url","affiliation","affiliation_url"]}},"value":[{"type":"character","attributes":{},"value":["Peter Hickey"]},{"type":"character","attributes":{},"value":["https://peterhickey.org"]},{"type":"character","attributes":{},"value":["WEHI SCORE"]},{"type":"character","attributes":{},"value":["https://www.wehi.edu.au/people/shalin-naik/3310/score"]}]}]},{"type":"character","attributes":{},"value":["2020-08-27"]},{"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["chunk_output_type"]}},"value":[{"type":"character","attributes":{},"value":["console"]}]},{"type":"character","attributes":{},"value":["ref.bib"]}]}
+  {"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["title","description","author","date","editor_options","bibliography"]}},"value":[{"type":"character","attributes":{},"value":["Multi-sample comparisons of the Hayman/Pasricha (C084) ZIPT mini-bulk data set"]},{"type":"NULL"},{"type":"list","attributes":{},"value":[{"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["name","url","affiliation","affiliation_url"]}},"value":[{"type":"character","attributes":{},"value":["Peter Hickey"]},{"type":"character","attributes":{},"value":["https://peterhickey.org"]},{"type":"character","attributes":{},"value":["WEHI SCORE"]},{"type":"character","attributes":{},"value":["https://www.wehi.edu.au/people/shalin-naik/3310/score"]}]}]},{"type":"character","attributes":{},"value":["2020-09-04"]},{"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["chunk_output_type"]}},"value":[{"type":"character","attributes":{},"value":["console"]}]},{"type":"character","attributes":{},"value":["ref.bib"]}]}
   </script>
   <!--/radix_placeholder_rmarkdown_metadata-->
   <!--radix_placeholder_navigation_in_header-->
@@ -1286,7 +1286,7 @@
 <!--radix_placeholder_front_matter-->
 
 <script id="distill-front-matter" type="text/json">
-{"title":"Multi-sample comparisons of the Hayman/Pasricha (C084) ZIPT mini-bulk data set","authors":[{"author":"Peter Hickey","authorURL":"https://peterhickey.org","affiliation":"WEHI SCORE","affiliationURL":"https://www.wehi.edu.au/people/shalin-naik/3310/score"}],"publishedDate":"2020-08-27T00:00:00.000+10:00","citationText":"Hickey, 2020"}
+{"title":"Multi-sample comparisons of the Hayman/Pasricha (C084) ZIPT mini-bulk data set","authors":[{"author":"Peter Hickey","authorURL":"https://peterhickey.org","affiliation":"WEHI SCORE","affiliationURL":"https://www.wehi.edu.au/people/shalin-naik/3310/score"}],"publishedDate":"2020-09-04T00:00:00.000+10:00","citationText":"Hickey, 2020"}
 </script>
 
 <!--/radix_placeholder_front_matter-->
@@ -1331,7 +1331,7 @@ Supplementary files
 <div class="d-byline">
   Peter Hickey <a href="https://peterhickey.org" class="uri">https://peterhickey.org</a> (WEHI SCORE)<a href="https://www.wehi.edu.au/people/shalin-naik/3310/score" class="uri">https://www.wehi.edu.au/people/shalin-naik/3310/score</a>
   
-<br/>2020-08-27
+<br/>2020-09-04
 </div>
 
 <div class="d-article">
@@ -1440,59 +1440,73 @@ Figure 2: Boxplots of log-CPM values showing expression distributions for unnorm
 <h2 id="unsupervised-clustering-of-samples">Unsupervised clustering of samples</h2>
 <p>In our opinion, one of the most important exploratory plots to examine for gene expression analyses is the multi-dimensional scaling (MDS) plot, or similar. The plot shows similarities and dissimilarities between samples in an unsupervised manner so that one can have an idea of the extent to which differential expression can be detected before carrying out formal tests. Ideally, samples would cluster well within the primary condition of interest, and any sample straying far from its group could be identified and followed up for sources of error or extra variation. If present, technical replicates should lie very close to one another.</p>
 <p>Such a plot can be made in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>plotMDS()</code> function. The first dimension represents the leading-fold-change that best separates samples and explains the largest proportion of variation in the data, with subsequent dimensions having a smaller effect and being orthogonal to the ones before it. When experimental design involves multiple factors, it is recommended that each factor is examined over several dimensions. If samples cluster by a given factor in any of these dimensions, it suggests that the factor contributes to expression differences and is worth including in the linear modelling. On the other hand, factors that show little or no effect may be left out of downstream analysis.</p>
-<p>In this dataset, samples can be seen to cluster strongly by experimental batch over dimension 1. This dominates any variation due to timepoint or treatment. Keeping in mind that the first dimension explains the largest proportion of variation in the data, notice that the range of values over the dimensions become smaller as we move to higher dimensions.</p>
+<p>Figure <a href="#fig:mds">3</a> shows that samples can be seen to cluster strongly by experimental batch over dimension 1. This dominates any variation due to timepoint or treatment.</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="figure"><span id="fig:mds"></span>
-<img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/mds-1.png" alt="MDS plots of log-CPM values over dimensions 1 and 2 with samples coloured by batch and over dimensions 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default." width="624" />
+<img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/mds-1.png" alt="MDS plots of log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by batch, treatment, and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default." width="624" />
 <p class="caption">
-Figure 3: MDS plots of log-CPM values over dimensions 1 and 2 with samples coloured by batch and over dimensions 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.
+Figure 3: MDS plots of log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by batch, treatment, and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.
 </p>
 </div>
 </div>
-<p>Datasets where samples do not cluster by experimental group may show little or no evidence of differential expression in the downstream analysis.</p>
+<p>Figures <a href="#fig:mds-lc475">4</a> and <a href="#fig:mds-lc476">5</a> show similar plots but when restricted to batch <code>LC475</code> or <code>LC476</code>, respectively. In each case, we observe some variation along dimension 1 by timepoint but little association with treatment over dimensions <span class="math inline">\(1-4\)</span>.</p>
+<div class="layout-chunk" data-layout="l-body">
+<div class="figure"><span id="fig:mds-lc475"></span>
+<img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/mds-lc475-1.png" alt="MDS plots of `LC475` log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default." width="624" />
+<p class="caption">
+Figure 4: MDS plots of <code>LC475</code> log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.
+</p>
+</div>
+</div>
+<div class="layout-chunk" data-layout="l-body">
+<div class="figure"><span id="fig:mds-lc476"></span>
+<img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/mds-lc476-1.png" alt="MDS plots of `LC476` log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default." width="624" />
+<p class="caption">
+Figure 5: MDS plots of <code>LC476</code> log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.
+</p>
+</div>
+</div>
+<p>Datasets where samples do not cluster by experimental group may show little or no evidence of differential expression in the downstream analysis. This suggests we may observe differential expression between timepoints but not much between treatments.</p>
 <h1 id="differential-expression-analysis">Differential expression analysis</h1>
+<p>This experiment has two levels of variability. First, there is the variation from person to person, which we call the between-subject strata. Then there is the variability of repeat measurements made on the same subject, the within-subject strata. The between-subject variation is always expected to be larger than within-subject, because the latter is adjusted for baseline differences between the subjects. Here the comparison between timepoints can be made within subjects, and hence should be more precise than the comparison between arms, which must be made between subjects.</p>
 <h2 id="creating-a-design-matrix-and-contrasts">Creating a design matrix and contrasts</h2>
-<p>In this study, the primary interest is to see which genes are expressed at different levels between the different treatments and timepoints. In our analysis, linear models are fitted to the data with the assumption that the underlying data is normally distributed. To get started, a design matrix is set up with the <code>group</code> (i.e. the combination of <code>timepoint</code> and <code>treatment</code>), <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
+<p>In this study, the primary interest is to see which genes are expressed at different levels between the different treatments and timepoints. In our analysis, linear models are fitted to the data with the assumption that the underlying data is normally distributed. To get started, a design matrix is set up with the <code>group</code> (i.e. the combination of <code>timepoint</code> and <code>treatment</code>) and <code>plate_number</code> (i.e. batch) information.</p>
 <aside>
-Of secondary interest is to see which genes have their expression associated with additional coveriates (e.g., weight for age at endline). We will use different design matrices and contrasts to answer these questions.
+Of secondary interest is to see which genes have their expression associated with additional covariates (e.g., weight for age at endline). We will use different design matrices and contrasts to answer these questions.
 </aside>
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
-<p>Contrasts for pairwise comparisons between <code>treatment</code> and <code>timepoint</code>, within each <code>id</code> and blocking on <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We wish to perform pairwise comparisons between <code>treatment</code>s, <code>timepoint</code>s, and their interactions, and we set these contrasts up using the <code>makeContrasts()</code> function from the <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> package.</p>
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
 <p>A key strength of <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em>’s linear modelling approach, is the ability accommodate arbitrary experimental complexity. Simple designs through to more complicated factorial designs and models with interaction terms can be handled relatively easily.</p>
-<aside>
-We will make use of more complicated models in some of the analyses of secondary outcomes.
-</aside>
 <h2 id="removing-heteroscedascity-from-count-data">Removing heteroscedascity from count data</h2>
 <p>It has been shown that for RNA-seq count data, the variance is not independent of the mean <span class="citation" data-cites="law2014voom">(Law et al. <a href="#ref-law2014voom" role="doc-biblioref">2014</a>)</span> – this is true of raw counts or when transformed to log-CPM values. Methods that model counts using a Negative Binomial distribution assume a quadratic mean-variance relationship. In <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em>, linear modelling is carried out on the log-CPM values which are assumed to be normally distributed and the mean-variance relationship is accommodated using precision weights calculated by the <code>voom()</code> function.</p>
 <p><code>voom()</code> converts raw counts to log-CPM values by automatically extracting library sizes and normalisation factors.</p>
-<p>The mean-variance relationship of log-CPM values for this dataset is shown in the left-hand panel of Figure <a href="#fig:voom">4</a>. Typically, the voom-plot shows a decreasing trend between the means and variances resulting from a combination of technical variation in the sequencing experiment and biological variation amongst the replicate samples from different cell populations. Experiments with high biological variation usually result in flatter trends, where variance values plateau at high expression values. Experiments with low biological variation tend to result in sharp decreasing trends.</p>
+<p>The mean-variance relationship of log-CPM values for this dataset is shown in the left-hand panel of Figure <a href="#fig:voom">6</a>. Typically, the voom-plot shows a decreasing trend between the means and variances resulting from a combination of technical variation in the sequencing experiment and biological variation amongst the replicate samples from different cell populations. Experiments with high biological variation usually result in flatter trends, where variance values plateau at high expression values. Experiments with low biological variation tend to result in sharp decreasing trends.</p>
 <p>Moreover, the voom-plot provides a visual check on the level of filtering performed upstream. If filtering of lowly-expressed genes is insufficient, a drop in variance levels can be observed at the low end of the expression scale due to very small counts. If this is observed, one should return to the earlier filtering step and increase the expression threshold applied to the dataset.</p>
 <div class="layout-chunk" data-layout="l-body">
-<pre><code>
-Coefficients not estimable: id356 id387 </code></pre>
-<pre><code>
-Coefficients not estimable: id356 id387 </code></pre>
 <div class="figure"><span id="fig:voom"></span>
-<img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/voom-1.png" alt="Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panel) and how the trend is removed after voom precision weights are applied to the data (right panel). The plot on the left is created within the `voom()` function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using `plotSA()` which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curve shows the estimated mean-variance trend used to compute the voom weights. On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line." width="624" />
+<img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/voom-1.png" alt="Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panel) and how the trend is removed after voom precision weights are applied to the data (right panel). The plot on the left is created within the `voomLmFit()` function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using `plotSA()` which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curvse show the estimated mean-variance trend used to compute the voom weights (`voomLmFit()` makes a first estimate and refines it for the final estimate). On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line." width="624" />
 <p class="caption">
-Figure 4: Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panel) and how the trend is removed after voom precision weights are applied to the data (right panel). The plot on the left is created within the <code>voom()</code> function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using <code>plotSA()</code> which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curve shows the estimated mean-variance trend used to compute the voom weights. On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line.
+Figure 6: Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panel) and how the trend is removed after voom precision weights are applied to the data (right panel). The plot on the left is created within the <code>voomLmFit()</code> function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using <code>plotSA()</code> which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curvse show the estimated mean-variance trend used to compute the voom weights (<code>voomLmFit()</code> makes a first estimate and refines it for the final estimate). On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line.
 </p>
 </div>
 </div>
 <h2 id="fitting-linear-models-for-comparisons-of-interest">Fitting linear models for comparisons of interest</h2>
-<p>Linear modelling in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> fits a separate model to the expression values for each gene. Next, empirical Bayes moderation is carried out by borrowing information across all the genes to obtain more precise estimates of gene-wise variability <span class="citation" data-cites="smyth2004linear">(Smyth <a href="#ref-smyth2004linear" role="doc-biblioref">2004</a>)</span>. The model’s residual variances are plotted against average expression values in Figure <a href="#fig:voom">4</a>. It can be seen from this plot that the variance is no longer dependent on the mean expression level.</p>
+<p>Linear modelling in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> fits a separate model to the expression values for each gene. Next, empirical Bayes moderation is carried out by borrowing information across all the genes to obtain more precise estimates of gene-wise variability <span class="citation" data-cites="smyth2004linear">(Smyth <a href="#ref-smyth2004linear" role="doc-biblioref">2004</a>)</span>. The model’s residual variances are plotted against average expression values in Figure <a href="#fig:voom">6</a>. It can be seen from this plot that the variance is no longer dependent on the mean expression level.</p>
 <h1 id="results">Results</h1>
+<div class="layout-chunk" data-layout="l-body">
+
+</div>
 <h2 id="figure-1">Figure 1</h2>
 <h3 id="endline-pairwise-analyses-between-treatments">Endline pairwise analyses between treatments</h3>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-10">Table 1: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-11">Table 1: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1504,21 +1518,21 @@ Figure 4: Means (x-axis) and variances (y-axis) of each gene are plotted to show
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">A.endline_vs_B.endline</td>
-<td style="text-align: right;">14</td>
-<td style="text-align: right;">4983</td>
-<td style="text-align: right;">12</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5009</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">A.endline_vs_C.endline</td>
-<td style="text-align: right;">19</td>
-<td style="text-align: right;">4981</td>
-<td style="text-align: right;">9</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5009</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">B.endline_vs_C.endline</td>
-<td style="text-align: right;">25</td>
-<td style="text-align: right;">4934</td>
-<td style="text-align: right;">50</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5009</td>
+<td style="text-align: right;">0</td>
 </tr>
 </tbody>
 </table>
@@ -1528,7 +1542,44 @@ Figure 4: Means (x-axis) and variances (y-axis) of each gene are plotted to show
 
 </div>
 <h4 id="adjusted-by-sex">Adjusted by sex</h4>
-<p><strong>TODO</strong>: Decide on strategy of fixed/random effects to achieve this aim.</p>
+<p>Tom and Santa also requested the analysis of <a href="#endline-pairwise-analyses-between-treatments">Endline pairwise analyses between treatments</a> be adjusted by sex. This is done by including <code>sex</code> in the design matrix.</p>
+<div class="layout-chunk" data-layout="l-body">
+
+</div>
+<p>The results are summarised below.</p>
+<div class="layout-chunk" data-layout="l-body">
+<table>
+<caption><span id="tab:unnamed-chunk-14">Table 2: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">Down</th>
+<th style="text-align: right;">NotSig</th>
+<th style="text-align: right;">Up</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">A.endline_vs_B.endline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5009</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">A.endline_vs_C.endline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5009</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">B.endline_vs_C.endline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5009</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
@@ -1537,7 +1588,7 @@ Figure 4: Means (x-axis) and variances (y-axis) of each gene are plotted to show
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-13">Table 2: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-16">Table 3: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1549,21 +1600,21 @@ Figure 4: Means (x-axis) and variances (y-axis) of each gene are plotted to show
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">A.endline_vs_A.baseline</td>
-<td style="text-align: right;">409</td>
-<td style="text-align: right;">4057</td>
-<td style="text-align: right;">543</td>
+<td style="text-align: right;">194</td>
+<td style="text-align: right;">4550</td>
+<td style="text-align: right;">265</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">B.endline_vs_B.baseline</td>
-<td style="text-align: right;">60</td>
-<td style="text-align: right;">4734</td>
-<td style="text-align: right;">215</td>
+<td style="text-align: right;">66</td>
+<td style="text-align: right;">4776</td>
+<td style="text-align: right;">167</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">C.endline_vs_C.baseline</td>
-<td style="text-align: right;">138</td>
-<td style="text-align: right;">4565</td>
-<td style="text-align: right;">306</td>
+<td style="text-align: right;">78</td>
+<td style="text-align: right;">4755</td>
+<td style="text-align: right;">176</td>
 </tr>
 </tbody>
 </table>
@@ -1572,16 +1623,20 @@ Figure 4: Means (x-axis) and variances (y-axis) of each gene are plotted to show
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
+<p><strong>TODO</strong> Some parallel co-ordinates plots of the genes that change?</p>
+<div class="layout-chunk" data-layout="l-body">
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-18-1.png" width="624" /></p>
+</div>
 <h4 id="check-for-differences-in-age-at-enrolment">Check for differences in age at enrolment</h4>
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
-<p>Figure <a href="#fig:age0-density">5</a> shows the distribution of age at enrolment (<code>age0</code>) by treatment arm. There is no significant difference in <code>age0</code> by treatment arm (ANOVA, <span class="math inline">\(P =\)</span> 0.998) nor is there an association when <code>age0</code> is binned as <span class="math inline">\((8.5-10]\)</span> or <span class="math inline">\((10-11.5]\)</span> (<span class="math inline">\(\chi^2\)</span>-test <span class="math inline">\(P =\)</span> 0.87).</p>
+<p>Figure <a href="#fig:age0-density">7</a> shows the distribution of age at enrolment (<code>age0</code>) by treatment arm. There is no significant difference in <code>age0</code> by treatment arm (ANOVA, <span class="math inline">\(P =\)</span> 0.998) nor is there an association when <code>age0</code> is binned as <span class="math inline">\((8.5-10]\)</span> or <span class="math inline">\((10-11.5]\)</span> (<span class="math inline">\(\chi^2\)</span>-test <span class="math inline">\(P =\)</span> 0.87).</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="figure"><span id="fig:age0-density"></span>
 <img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/age0-density-1.png" alt="Density estimates of `age0` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm." width="624" />
 <p class="caption">
-Figure 5: Density estimates of <code>age0</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm.
+Figure 7: Density estimates of <code>age0</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm.
 </p>
 </div>
 </div>
@@ -1590,12 +1645,12 @@ Figure 5: Density estimates of <code>age0</code> in each treatment arm. The dens
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
-<p>Figure <a href="#fig:HAZ24-density">6</a> shows the distribution of height for age at endline (<code>HAZ24</code>) by treatment arm. There is 1 samples without a <code>HAZ24</code> measurement (id: 348).</p>
+<p>Figure <a href="#fig:HAZ24-density">8</a> shows the distribution of height for age at endline (<code>HAZ24</code>) by treatment arm. There is 1 samples without a <code>HAZ24</code> measurement (id: 348).</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="figure"><span id="fig:HAZ24-density"></span>
 <img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/HAZ24-density-1.png" alt="Density estimates of `HAZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Stunted24`." width="624" />
 <p class="caption">
-Figure 6: Density estimates of <code>HAZ24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Stunted24</code>.
+Figure 8: Density estimates of <code>HAZ24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Stunted24</code>.
 </p>
 </div>
 </div>
@@ -1633,15 +1688,15 @@ Figure 6: Density estimates of <code>HAZ24</code> in each treatment arm. The den
 </table>
 </div>
 <h4 id="haz24"><code>HAZ24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>HAZ24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>HAZ24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>HAZ24</code></p>
+<p>Contrasts for association of gene expression with <code>HAZ24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-18-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-22-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-19">Table 3: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-23">Table 4: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1665,15 +1720,15 @@ Figure 6: Density estimates of <code>HAZ24</code> in each treatment arm. The den
 
 </div>
 <h4 id="stunted24"><code>Stunted24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>Stunted24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>Stunted24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>Stunted24</code>.</p>
+<p>Contrasts for association of gene expression with <code>Stunted24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-21-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-25-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-22">Table 4: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-26">Table 5: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1700,12 +1755,12 @@ Figure 6: Density estimates of <code>HAZ24</code> in each treatment arm. The den
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
-<p>Figure <a href="#fig:WHZ24-density">7</a> shows the distribution of weight for height at endline (<code>WHZ24</code>) by treatment arm. There is 1 samples without a <code>WHZ24</code> measurement (id: 348).</p>
+<p>Figure <a href="#fig:WHZ24-density">9</a> shows the distribution of weight for height at endline (<code>WHZ24</code>) by treatment arm. There is 1 samples without a <code>WHZ24</code> measurement (id: 348).</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="figure"><span id="fig:WHZ24-density"></span>
 <img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/WHZ24-density-1.png" alt="Density estimates of `WHZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Wasted24`." width="624" />
 <p class="caption">
-Figure 7: Density estimates of <code>WHZ24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Wasted24</code>.
+Figure 9: Density estimates of <code>WHZ24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Wasted24</code>.
 </p>
 </div>
 </div>
@@ -1743,15 +1798,15 @@ Figure 7: Density estimates of <code>WHZ24</code> in each treatment arm. The den
 </table>
 </div>
 <h4 id="whz24"><code>WHZ24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>WHZ24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>WHZ24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>WHZ24</code>.</p>
+<p>Contrasts for association of gene expression with <code>WHZ24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-26-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-30-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-27">Table 5: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-31">Table 6: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1775,15 +1830,15 @@ Figure 7: Density estimates of <code>WHZ24</code> in each treatment arm. The den
 
 </div>
 <h4 id="wasted24"><code>Wasted24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>Wasted24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>Wasted24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>Wasted24</code>.</p>
+<p>Contrasts for association of gene expression with <code>Wasted24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-29-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-33-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-30">Table 6: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-34">Table 7: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1810,12 +1865,12 @@ Figure 7: Density estimates of <code>WHZ24</code> in each treatment arm. The den
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
-<p>Figure <a href="#fig:WAZ24-density">8</a> shows the distribution of weight for age at endline (<code>WAZ24</code>) by treatment arm. There is 1 samples without a <code>WAZ24</code> measurement (id: 348).</p>
+<p>Figure <a href="#fig:WAZ24-density">10</a> shows the distribution of weight for age at endline (<code>WAZ24</code>) by treatment arm. There is 1 samples without a <code>WAZ24</code> measurement (id: 348).</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="figure"><span id="fig:WAZ24-density"></span>
 <img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/WAZ24-density-1.png" alt="Density estimates of `WAZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Underweight24`." width="624" />
 <p class="caption">
-Figure 8: Density estimates of <code>WAZ24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Underweight24</code>.
+Figure 10: Density estimates of <code>WAZ24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Underweight24</code>.
 </p>
 </div>
 </div>
@@ -1853,15 +1908,15 @@ Figure 8: Density estimates of <code>WAZ24</code> in each treatment arm. The den
 </table>
 </div>
 <h4 id="waz24"><code>WAZ24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>WAZ24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>WAZ24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>WAZ24</code>.</p>
+<p>Contrasts for association of gene expression with <code>WAZ24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-34-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-38-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-35">Table 7: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-39">Table 8: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1885,15 +1940,15 @@ Figure 8: Density estimates of <code>WAZ24</code> in each treatment arm. The den
 
 </div>
 <h4 id="underweight24"><code>Underweight24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>Underweight24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>Underweight24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>Underweight24</code>.</p>
+<p>Contrasts for association of gene expression with <code>Underweight24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-37-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-41-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-38">Table 8: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-42">Table 9: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -1932,7 +1987,7 @@ factor(0)
 <pre><code>
 factor(0)
 102 Levels: 102 103 104 106 107 108 109 110 111 112 113 114 ... 387</code></pre>
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-40-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-44-1.png" width="624" /></p>
 </div>
 <h3 id="gene-expression-by-sex">Gene expression by sex</h3>
 <p><strong>TODO</strong>: It’s not clear what comparison is being requested from Tom’s email.</p>
@@ -1941,12 +1996,12 @@ factor(0)
 <div class="layout-chunk" data-layout="l-body">
 
 </div>
-<p>Figure <a href="#fig:hb24-density">9</a> shows the distribution of weight for age at endline (<code>hb24</code>) by treatment arm. There is 2 samples without a <code>hb24</code> measurement (id: 147 and 348).</p>
+<p>Figure <a href="#fig:hb24-density">11</a> shows the distribution of weight for age at endline (<code>hb24</code>) by treatment arm. There is 2 samples without a <code>hb24</code> measurement (id: 147 and 348).</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="figure"><span id="fig:hb24-density"></span>
 <img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/hb24-density-1.png" alt="Density estimates of `hb24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Anaemic24`." width="624" />
 <p class="caption">
-Figure 9: Density estimates of <code>hb24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Anaemic24</code>.
+Figure 11: Density estimates of <code>hb24</code> in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are <code>Anaemic24</code>.
 </p>
 </div>
 </div>
@@ -1984,15 +2039,15 @@ Figure 9: Density estimates of <code>hb24</code> in each treatment arm. The dens
 </table>
 </div>
 <h4 id="hb24"><code>hb24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>hb24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>hb24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>hb24</code>.</p>
+<p>Contrasts for association of gene expression with <code>hb24</code>, accounting for <code>group</code> <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-43-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-47-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-44">Table 9: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-48">Table 10: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -2016,15 +2071,15 @@ Figure 9: Density estimates of <code>hb24</code> in each treatment arm. The dens
 
 </div>
 <h4 id="anaemic24"><code>Anaemic24</code></h4>
-<p>We subset the data to just the endline <code>timepoint</code> and update the design matrix to include <code>Anaemic24</code> in addition to <code>treatment</code>, <code>id</code> (i.e. subject ID), and <code>plate_number</code> (i.e. batch) information.</p>
-<p>Contrasts for association of gene expression with <code>Anaemic24</code>, accounting for <code>group</code>, <code>id</code>, and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
+<p>We subset the data to just the endline <code>timepoint</code> and update the original design matrix to add <code>Anaemic24</code>.</p>
+<p>Contrasts for association of gene expression with <code>Anaemic24</code>, accounting for <code>group</code> and <code>plate_number</code>, are set up in <em><a href="https://bioconductor.org/packages/3.11/limma">limma</a></em> using the <code>makeContrasts()</code> function.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-46-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-50-1.png" width="624" /></p>
 </div>
 <p>For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table. Significance is defined using an adjusted p-value cutoff that is set at 5% by default.</p>
 <div class="layout-chunk" data-layout="l-body">
 <table>
-<caption><span id="tab:unnamed-chunk-47">Table 10: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
+<caption><span id="tab:unnamed-chunk-51">Table 11: </span>Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (<code>Down</code>), the number of non-differentially expressed genes (<code>NotSig</code>), the number of upregulated genes (<code>Up</code>)</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -2050,10 +2105,10 @@ Figure 9: Density estimates of <code>hb24</code> in each treatment arm. The dens
 <h3 id="correlation-between-recovering-from-anaemia-and-being-in-a-treatment-group">Correlation between recovering from anaemia and being in a treatment group</h3>
 <p><strong>TODO</strong>: It’s not clear what comparison is being requested from Tom’s email.</p>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-49-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-53-1.png" width="624" /></p>
 </div>
 <div class="layout-chunk" data-layout="l-body">
-<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-50-1.png" width="624" /></p>
+<p><img src="C084_Hayman_Pasricha.multi-sample_comparisons_files/unnamed-chunk-54-1.png" width="624" /></p>
 </div>
 <div class="layout-chunk" data-layout="l-body">
 
@@ -2225,20 +2280,20 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  collate  en_AU.UTF-8                 
  ctype    en_AU.UTF-8                 
  tz       Australia/Melbourne         
- date     2020-08-27                  
+ date     2020-09-04                  
 
 ─ Packages ─────────────────────────────────────────────────────────
  ! package              * version  date       lib source        
- P AnnotationDbi          1.50.3   2020-07-25 [?] Bioconductor  
+ P AnnotationDbi        * 1.50.3   2020-07-25 [?] Bioconductor  
  P assertthat             0.2.1    2019-03-21 [?] CRAN (R 4.0.0)
- P backports              1.1.8    2020-06-17 [?] CRAN (R 4.0.0)
+ P backports              1.1.9    2020-08-24 [?] CRAN (R 4.0.0)
  P Biobase              * 2.48.0   2020-04-27 [?] Bioconductor  
  P BiocGenerics         * 0.34.0   2020-04-27 [?] Bioconductor  
  P BiocManager            1.30.10  2019-11-16 [?] CRAN (R 4.0.0)
  P BiocParallel         * 1.22.0   2020-04-27 [?] Bioconductor  
  P BiocStyle              2.16.0   2020-04-27 [?] Bioconductor  
  P bit                    4.0.4    2020-08-04 [?] CRAN (R 4.0.0)
- P bit64                  4.0.2    2020-07-30 [?] CRAN (R 4.0.0)
+ P bit64                  4.0.5    2020-08-30 [?] CRAN (R 4.0.0)
  P bitops                 1.0-6    2013-08-17 [?] CRAN (R 4.0.0)
  P blob                   1.2.1    2020-01-20 [?] CRAN (R 4.0.0)
  P cli                    2.0.2    2020-02-28 [?] CRAN (R 4.0.0)
@@ -2249,7 +2304,7 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  P DelayedArray         * 0.14.1   2020-07-14 [?] Bioconductor  
  P digest                 0.6.25   2020-02-23 [?] CRAN (R 4.0.0)
  P distill                0.8      2020-06-04 [?] CRAN (R 4.0.0)
- P dplyr                  1.0.1    2020-07-31 [?] CRAN (R 4.0.0)
+ P dplyr                  1.0.2    2020-08-18 [?] CRAN (R 4.0.0)
  P edgeR                * 3.30.3   2020-06-02 [?] Bioconductor  
  P ellipsis               0.3.1    2020-05-15 [?] CRAN (R 4.0.0)
  P evaluate               0.14     2019-05-28 [?] CRAN (R 4.0.0)
@@ -2262,7 +2317,7 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  P gghighlight          * 0.3.0    2020-03-29 [?] CRAN (R 4.0.0)
  P ggplot2              * 3.3.2    2020-06-19 [?] CRAN (R 4.0.0)
  P Glimma                 1.16.0   2020-04-27 [?] Bioconductor  
- P glue                   1.4.1    2020-05-13 [?] CRAN (R 4.0.0)
+ P glue                   1.4.2    2020-08-27 [?] CRAN (R 4.0.0)
  P GO.db                  3.11.4   2020-07-22 [?] Bioconductor  
  P gtable                 0.3.0    2019-03-25 [?] CRAN (R 4.0.0)
  P here                 * 0.1      2017-05-28 [?] CRAN (R 4.0.0)
@@ -2284,7 +2339,7 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  P memoise                1.1.0    2017-04-21 [?] CRAN (R 4.0.0)
  P msigdbr              * 7.1.1    2020-05-14 [?] CRAN (R 4.0.0)
  P munsell                0.5.0    2018-06-12 [?] CRAN (R 4.0.0)
- P org.Hs.eg.db           3.11.4   2020-06-15 [?] Bioconductor  
+ P org.Hs.eg.db         * 3.11.4   2020-06-15 [?] Bioconductor  
  P patchwork            * 1.0.1    2020-06-22 [?] CRAN (R 4.0.0)
  P pheatmap             * 1.0.12   2019-01-04 [?] CRAN (R 4.0.0)
  P pillar                 1.4.6    2020-07-10 [?] CRAN (R 4.0.0)
@@ -2303,13 +2358,14 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  P sessioninfo            1.1.1    2018-11-05 [?] CRAN (R 4.0.0)
  P SingleCellExperiment * 1.10.1   2020-04-28 [?] Bioconductor  
  P snakecase              0.11.0   2019-05-25 [?] CRAN (R 4.0.0)
+ P statmod                1.4.34   2020-02-17 [?] CRAN (R 4.0.0)
  P stringi                1.4.6    2020-02-17 [?] CRAN (R 4.0.0)
  P stringr                1.4.0    2019-02-10 [?] CRAN (R 4.0.0)
  P SummarizedExperiment * 1.18.2   2020-07-09 [?] Bioconductor  
  P tibble                 3.0.3    2020-07-10 [?] CRAN (R 4.0.0)
- P tidyr                  1.1.1    2020-07-31 [?] CRAN (R 4.0.0)
+ P tidyr                  1.1.2    2020-08-27 [?] CRAN (R 4.0.0)
  P tidyselect             1.1.0    2020-05-11 [?] CRAN (R 4.0.0)
- P vctrs                  0.3.2    2020-07-15 [?] CRAN (R 4.0.0)
+ P vctrs                  0.3.4    2020-08-29 [?] CRAN (R 4.0.0)
  P withr                  2.2.0    2020-04-20 [?] CRAN (R 4.0.0)
  P xfun                   0.16     2020-07-24 [?] CRAN (R 4.0.0)
  P XVector                0.28.0   2020-04-27 [?] Bioconductor  
@@ -2317,7 +2373,7 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  P zlibbioc               1.34.0   2020-04-27 [?] Bioconductor  
 
 [1] /home/peter/SCORE/C084_Hayman_Pasricha/renv/library/R-4.0/x86_64-pc-linux-gnu
-[2] /tmp/RtmpVhm0n2/renv-system-library
+[2] /tmp/RtmptohKgi/renv-system-library
 [3] /usr/local/lib/R/site-library
 [4] /usr/lib/R/site-library
 [5] /usr/lib/R/library
@@ -2325,9 +2381,6 @@ X-squared = 1.0971, df = 2, p-value = 0.5778</code></pre>
  P ── Loaded and on-disk path mismatch.</code></pre>
 </div>
 </details>
-<div class="layout-chunk" data-layout="l-body">
-
-</div>
 <div id="refs" class="references" role="doc-bibliography">
 <div id="ref-law2014voom">
 <p>Law, C. W., Y. Chen, W. Shi, and G. K. Smyth. 2014. “Voom: Precision Weights Unlock Linear Model Analysis Tools for Rna-Seq Read Counts.” <em>Genome Biol.</em> 15 (2): R29. <a href="https://www.ncbi.nlm.nih.gov/pubmed/24485249">https://www.ncbi.nlm.nih.gov/pubmed/24485249</a>.</p>
