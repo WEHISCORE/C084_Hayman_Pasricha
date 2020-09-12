@@ -1,6 +1,6 @@
-# Process NN179 and NN183 (C084) with scPipe
+# Process NN179, NN183, and NN195 (C084) with scPipe
 # Peter Hickey
-# 2020-02-24
+# 2020-09-11
 
 # Setup ------------------------------------------------------------------------
 
@@ -80,9 +80,11 @@ sample_sheet_nn179 <- sample_sheet_nn179 %>%
     sequencing_run = "NN179") %>%
   arrange(plate_number, well_position)
 
-# Construct NN183 sample sheet -------------------------------------------------
+# Construct NN183/NN195 sample sheet -------------------------------------------
 
-file_nn183 <- here(
+# NOTE: NN195 is re-sequencing of the `LCE_476_BU_8_cycle` samples from NN183.
+
+file_nn183_nn195 <- here(
   "data",
   "sample_sheets",
   "C084_NN183_primer layout_Feb2020.xlsx")
@@ -90,15 +92,15 @@ file_nn183 <- here(
 # NOTE: Header row is split across 2 lines, which I combine into 1 before
 #       reading in the rest of the spreadsheet.
 header_row <- read_excel(
-  path = file_nn183,
+  path = file_nn183_nn195,
   sheet = "Sample & Index",
   skip = 2,
   n_max = 1)
 
 header_row <- paste0(colnames(header_row), header_row[1, ])
 header_row <- gsub("^\\.\\.\\.[0-9]+", "", header_row)
-sample_sheet_nn183 <- read_excel(
-  path = file_nn183,
+sample_sheet_nn183_nn195 <- read_excel(
+  path = file_nn183_nn195,
   sheet = "Sample & Index",
   skip = 4,
   col_names = header_row,
@@ -107,16 +109,16 @@ sample_sheet_nn183 <- read_excel(
   #       (https://github.com/tidyverse/readxl/issues/414#issuecomment-352437730)
   guess_max = 1048576)
 # Tidy up names
-sample_sheet_nn183 <- clean_names(sample_sheet_nn183)
+sample_sheet_nn183_nn195 <- clean_names(sample_sheet_nn183_nn195)
 # Remove empty rows/columns.
-sample_sheet_nn183 <- remove_empty(sample_sheet_nn183)
+sample_sheet_nn183_nn195 <- remove_empty(sample_sheet_nn183_nn195)
 
 # Filter out those empty wells.
-sample_sheet_nn183 <- sample_sheet_nn183 %>%
+sample_sheet_nn183_nn195 <- sample_sheet_nn183_nn195 %>%
   filter(sample_name != "empty")
 
 # Some final tidying.
-sample_sheet_nn183 <- sample_sheet_nn183 %>%
+sample_sheet_nn183_nn195 <- sample_sheet_nn183_nn195 %>%
   mutate(
     # NOTE: Some wacky whitespace characters in the plate number
     plate_number = gsub(
@@ -144,7 +146,10 @@ sample_sheet_nn183 <- sample_sheet_nn183 %>%
     # NOTE: There are some wonky RPIs
     illumina_index_index_number_separate_index_read = trimws(
       illumina_index_index_number_separate_index_read),
-    sequencing_run = "NN183") %>%
+    sequencing_run = ifelse(
+      plate_number == "LCE_476_BU_8_cycle",
+      "NN183_NN195",
+      "NN183")) %>%
   arrange(plate_number, well_position)
 
 # Construct sample metadata ----------------------------------------------------
@@ -182,7 +187,7 @@ metadata_tbl <- rbind(baseline_tbl, endline_tbl) %>%
 
 # Construct final sample sheet -------------------------------------------------
 
-sample_sheet <- rbind(sample_sheet_nn179, sample_sheet_nn183) %>%
+sample_sheet <- rbind(sample_sheet_nn179, sample_sheet_nn183_nn195) %>%
   inner_join(
     metadata_tbl,
     by = c("well_position_in_original_dilution_layout" = "plate_location")) %>%
@@ -213,6 +218,7 @@ sequencing_runs <- tapply(
   sample_sheet$sequencing_run,
   sample_sheet$plate_number,
   unique)
+sequencing_runs <- sequencing_runs[plates]
 outdir <- here("data", "SCEs")
 dir.create(outdir, recursive = TRUE)
 extdir <- here("extdata", sequencing_runs, "scPipe", plates)
@@ -247,6 +253,14 @@ r1_fq <- c(
       full.names = TRUE,
       pattern = glob2rx("*R1.fastq.gz")),
     invert = TRUE,
+    value = TRUE),
+  grep(
+    pattern = "Undetermined",
+    x = list.files(
+      path = here("extdata", "NN195"),
+      full.names = TRUE,
+      pattern = glob2rx("*R1.fastq.gz")),
+    invert = FALSE,
     value = TRUE))
 
 r2_fq <- gsub("R1", "R2", r1_fq)
@@ -298,6 +312,32 @@ mclapply(plates, function(plate) {
       "\n",
       "cat ",
       grep(sequencing_run, grep(rpi, r2_fq, value = TRUE), value = TRUE),
+      " > ",
+      tx_fq[[plate]])
+  } else if (sequencing_run == "NN183_NN195") {
+    rpi <- paste0(
+      trimws(
+        sub(
+          "RPI",
+          "",
+          unique(
+            sample_sheet[sample_sheet$plate_number == plate,
+                         "illumina_index_index_number_separate_index_read"]),
+          perl = TRUE),
+        whitespace = "[\\h\\v]"),
+      "_S")
+    cmd <- paste0(
+      "cat ",
+      grep("NN183", grep(rpi, r1_fq, value = TRUE), value = TRUE),
+      " ",
+      grep("NN195", r1_fq, value = TRUE),
+      " > ",
+      barcode_fq[[plate]],
+      "\n",
+      "cat ",
+      grep("NN183", grep(rpi, r2_fq, value = TRUE), value = TRUE),
+      " ",
+      grep("NN195", r2_fq, value = TRUE),
       " > ",
       tx_fq[[plate]])
   }
@@ -361,7 +401,7 @@ Rsubread::align(
   index = genome_index,
   readfile1 = combined_fq,
   output_file = subread_bam,
-  nthreads = 12)
+  nthreads = 4)
 
 # Assigning reads to annotated exons -------------------------------------------
 
@@ -431,8 +471,9 @@ sce$UMI_deduped <- TRUE
 assay(sce, withDimnames = FALSE) <- as(
   assay(sce, withDimnames = FALSE),
   "dgCMatrix")
-sce <- splitAltExps(sce, ifelse(isSpike(sce), "ERCC", "Endogenous"))
-sce <- clearSpikes(sce)
+sce <- splitAltExps(
+  sce,
+  ifelse(grepl("^ERCC", rownames(sce)), "ERCC", "Endogenous"))
 
 saveRDS(
   sce,
@@ -528,7 +569,6 @@ assay(no_dedup_sce, withDimnames = FALSE) <- unname(
 no_dedup_sce <- splitAltExps(
   no_dedup_sce,
   ifelse(grepl("^ERCC", rownames(no_dedup_sce)), "ERCC", "Endogenous"))
-no_dedup_sce <- clearSpikes(no_dedup_sce)
 # NOTE: Order genes and samples as in `sce`.
 no_dedup_sce <- no_dedup_sce[rownames(sce),
                              paste0(colnames(sce), ".not_UMI_deduped")]
