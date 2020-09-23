@@ -1362,10 +1362,6 @@ createDEGOutputs(
   annotation_col = c("plate_number", "treatment", "hb24", "Anaemic24"))
 ```
 
-```{r}
-knitr::knit_exit()
-```
-
 # Using LC476
 
 Please see [`output/DEGs/LC476/`](../output/DEGs/LC476/) for spreadsheets of these DEG lists, including results of GO and KEGG analyses using the `goana()` and `kegga()` functions from the `r BiocStyle::Biocpkg("limma")` package, as well as heatmaps and Venn diagrams of the DEG lists and interactive `r BiocStyle::Biocpkg("Glimma")` plots of the differential expression results.
