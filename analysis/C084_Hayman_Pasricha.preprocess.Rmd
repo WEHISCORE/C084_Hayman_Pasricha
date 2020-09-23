@@ -137,7 +137,7 @@ rownames(sce) <- uniquifyFeatureNames(
     } else {
       NA_character_
     }
-    }))
+  }))
 ```
 
 ```{r}
@@ -273,7 +273,8 @@ knitr::kable(
   caption = "Descriptions of additional library preparations.")
 ```
 
-Ultimately, the 'LC475 mini bulk back up 1:10 dilution' (`C084_LC475_mini_bulk_back_up_1:10`; henceforth abbreviate to `LC475`) and 'LC476 mini bulk original (1ng/uL)' (`LCE_476_BU_8_cycle`; henceforth abbreviate to `LC476`) library preparations were taken forward and sequenced in run `NN183`.
+Ultimately, the 'LC475 mini bulk back up 1:10 dilution' (`C084_LC475_mini_bulk_back_up_1:10`; henceforth abbreviate to `LC475`) and 'LC476 mini bulk original (1ng/uL)' (`LCE_476_BU_8_cycle`; henceforth abbreviate to `LC476`) library preparations were taken forward.
+`LC475` and `LC476` were sequenced in run `NN183` and `LC476` was re-sequenced in run `NN195`.
 
 ```{r}
 # Rename plates and samples.
@@ -302,6 +303,12 @@ sce$sex_colours <- sex_colours[sce$sex]
 
 # Have we sequenced enough?
 
+**It was ultimately decided to re-sequence `LC476` to obtain additional data.**
+
+<aside>
+The analysis below is what led to this decision, but now includes the re-sequencing data.
+</aside>
+
 ## Motivation
 
 SCORE's mini-bulk protocol is still being finalised and some technical questions remain.
@@ -325,7 +332,7 @@ reads_ls <- log10(colSums(assay(sce, "read_counts")))
 ```
 
 Figure \@ref(fig:read-library-size) plots the distribution of the number of reads mapped to exons in each sample^[I.e. the 'library size' when using read counts].
-We see that obtain more reads/sample on average for samples on the `LC476` plate (median = `r number(median(10 ^ reads_ls[sce$plate_number == "LC476"]), big.mark = ",")`) than for samples on the `LC475` (median = `r number(median(10 ^ reads_ls[sce$plate_number == "LC475"]), big.mark = ",")`).
+Due to the additional sequencing, we see that we obtained more reads/sample on average for samples on the `LC476` plate (median = `r number(median(10 ^ reads_ls[sce$plate_number == "LC476"]), big.mark = ",")`) than for samples on the `LC475` (median = `r number(median(10 ^ reads_ls[sce$plate_number == "LC475"]), big.mark = ",")`).
 
 ```{r read-library-size, fig.asp = 1 / 2, fig.cap = "Distribution of the number of reads mapped to exons in each sample, stratified by plate."}
 par(mfrow = c(1, 2))
@@ -391,7 +398,8 @@ saturation_no_hemo <- 1 -
      colSums(assay(sce, "read_counts")[setdiff(rownames(sce), hemo_set), ]))
 ```
 
-Figure \@ref(fig:saturation) shows that the hemoglobin subunit genes are sequenced to near-total saturation, whereas the rest of the transcriptome reaches just over 50% sequencing saturation for most samples with a higher on average sequencing saturation of non-hemoglobin subunit genes for samples on the `LC476` plate (median = `r percent(median(saturation_no_hemo[sce$plate_number == "LC476"]))`) than for samples on the `LC475` plate (median  = `r percent(median(saturation_no_hemo[sce$plate_number == "LC475"]))`).
+Figure \@ref(fig:saturation) shows that the hemoglobin subunit genes are sequenced to near-total saturation.
+The more deeply sequenced samples on plate `LC476` have correspondingly higher average sequencing saturation of non-hemoglobin subunit genes (median = `r percent(median(saturation_no_hemo[sce$plate_number == "LC476"]))`) than for samples on the `LC475` plate (median  = `r percent(median(saturation_no_hemo[sce$plate_number == "LC475"]))`).
 
 ```{r saturation, fig.asp = 3 / 2, fig.cap = "Distribution of the sequencing saturation of different classes of genes, stratified by plate."}
 par(mfrow = c(3, 2))
@@ -459,6 +467,8 @@ plot(
 
 ## Summary
 
+**As already mentioned, it was ultimately decided to re-sequence `LC476`.**
+
 These results show that the libraries are massively enriched for sequences from hemoglobin subunit genes and we have consequently over-sequenced these genes and likely under-sequenced the rest of the transcriptome.
 Further sequencing of these samples may therefore be necessary.
 
@@ -474,8 +484,6 @@ However, remember that in doing further sequencing we will still be 'paying the 
 
 An alternative to simply re-sequencing the existing library may be to first perform a technique like 'DASH', which uses "recombinant Cas9 protein complexed with a library of guide RNAs targeting unwanted species for cleavage, thus preventing them from consuming sequencing space" [@gu2016depletion].
 The feasibility/suitability of using such a technique for this project would require further discussion with SCORE.
-
-**TODO** Mention globinzero (https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/ribosomal-depletion/globin-zero-gold/globin-zero-gold-reference-guide-15066013-02.pdf)?
 
 # UMI counts vs. read counts
 
@@ -523,10 +531,6 @@ In fact:
 - 99.9% of the read counts are no greater than `r quantile(as.vector(assay(sce, "read_counts")), 0.999)`
 
 Most importantly, only (`r percent(sum(as.vector(assay(sce, "read_counts")) > 4^6) / prod(dim(sce)), accuracy = 0.001)`) of read counts exceed the $4^6 = 4096$ threshold.
-
-<aside>
-Surprisingly, `r percent(sum(as.vector(assay(sce, "UMI_counts")) > 4^6) / prod(dim(sce)), accuracy = 0.001)` of UMI counts exceed the theoretical maximum of $4^6=4096$. At this stage it is not clear to me how this can occur.
-</aside>
 
 ```{r read-distribution, fig.cap = "Distribution of the logarithm of the read counts as density plot (left) and empirical cumulative distribution function (right). A count of 1 is added to each UMI count to avoid taking the logarithm of zero. The orange vertical line denotes $4^6 = 4096$.", fig.asp = 1 / 2}
 x <- as.vector(assay(sce, "read_counts")) + 1
@@ -601,7 +605,6 @@ We can investigate this list more formally using a statistical test for over-rep
 This is done using the `goana()` function from the `r BiocStyle::Biocpkg("limma")` package.
 These results are shown in the table below. 
 Several of the top GO terms relate to haptoglobin and hemoglobin, mitochondrial functions, and immune terms.
-However, it is somewhat concerning to see 'response to stress' at the top of this list, which may indicate the sample quality was compromised prior to or during library preparation.
 
 ```{r}
 # NOTE: kegga() was uninformative.
@@ -706,10 +709,9 @@ lines(l, col = "dodgerBlue", lwd = 2)
 Rather than looking at all samples and all genes at once, can also examine the relationship between UMI counts and read counts within a single sample across genes (Figure \@ref(fig:within-sample-cors)) and within a single gene across samples (Figure \@ref(fig:within-gene-cors)).
 
 ```{r}
-x <- log2(as.matrix(assay(sce, "UMI_counts")) + 1)
-y <- log2(as.matrix(assay(sce, "read_counts")) + 1)
-
-cor_j <- diag(cor(x, y))
+X <- edgeR::cpm(assay(sce, "UMI_counts"), log = TRUE)
+Y <- edgeR::cpm(assay(sce, "read_counts"), log = TRUE)
+cor_j <- diag(cor(X, Y))
 # NOTE: Splitting up the cor() computations is a hack to improve speed whilst 
 #       keeping memory usage somewhat under control.
 b <- 1000
@@ -717,7 +719,7 @@ s <- seq(1, by = b, to = nrow(sce))
 e <- pmin(s + b - 1, nrow(sce))
 cor_i <- unlist(
   Map(
-    f = function(ss, ee ) diag(cor(t(x[ss:ee, ]), t(y[ss:ee, ]))),
+    f = function(ss, ee ) diag(cor(t(X[ss:ee, ]), t(Y[ss:ee, ]))),
     ss = s,
     ee = e))
 ```
@@ -725,7 +727,7 @@ cor_i <- unlist(
 These figures show that the UMI counts and read counts are highly correlated across both samples (median = `r number(median(cor_j, na.rm = TRUE), accuracy = 0.001)`, median absolute deviation = `r number(mad(cor_j, na.rm = TRUE), accuracy = 0.001)`) and genes (median = `r number(median(cor_i, na.rm = TRUE), accuracy = 0.001)`, median absolute deviation = `r number(mad(cor_i, na.rm = TRUE), accuracy = 0.001)`).
 
 <aside>
-The genes with the lowest correlations are the aforementioned highly-expressed hemoglobin subunits.
+The genes with the lowest correlations include the aforementioned highly-expressed hemoglobin subunits.
 </aside>
 
 ```{r within-sample-cors, fig.cap = "Association between UMI counts and read counts for each gene within each sample. The first 8 panels are scatter plots of the UMI counts and read counts for each gene for the samples with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all samples.", fig.asp = 1}
@@ -734,14 +736,14 @@ jj <- names(sort(cor_j)[c(1:3, 195:196, 390:392)])
 for (j in jj) {
   g <- rownames(sce)
   plot(
-    x = x[, j],
-    y = y[, j],
+    x = X[, j],
+    y = Y[, j],
     pch = ".",
     cex = ifelse(g %in% hemo_set, 5, 1),
     col = ifelse(g %in% hemo_set, "red", "black"),
     sub = paste0("r = ", number(cor_j[j], accuracy = 0.001)),
-    xlab = expression(log[2](UMIs + 1)),
-    ylab = expression(log[2](reads + 1)),
+    xlab = "logCPM(UMIs)",
+    ylab = "logCPM(reads)",
     main = j,
     xlim = c(0, max(x)),
     ylim = c(0, max(y)))
@@ -756,17 +758,17 @@ plot(
 ```{r within-gene-cors, fig.cap = "Association between UMI counts and read counts for each sample within each gene. The first 8 panels are scatter plots of the UMI counts and read counts for each sample for the genes with the 3 lowest correlations, 2 middlemost correlations, and 3 highest correlations. The correlation in the scatterplot is reported below each panel. The final panel is the distribution of these correlations across all genes.", fig.asp = 1}
 par(mfrow = c(3, 3), cex = 0.5)
 # NOTE: There are some NA correlations, so this changes ii.
-ii <- names(sort(cor_i)[c(1:3, 16421:16422, 32849:32851)])
+ii <- names(sort(cor_i)[c(1:3, 17358:17359, 34715:34717)])
 for (i in ii) {
   g <- i
   plot(
-    x = x[i, ],
-    y = y[i, ],
+    x = X[i, ],
+    y = Y[i, ],
     pch = 16,
     col = ifelse(g %in% hemo_set, "red", "black"),
     sub = paste0("r = ", number(cor_i[i], accuracy = 0.001)),
-    xlab = expression(log[2](UMIs + 1)),
-    ylab = expression(log[2](reads + 1)),
+    xlab = "logCPM(UMIs)",
+    ylab = "logCPM(reads)",
     main = i,
     xlim = c(0, max(x)),
     ylim = c(0, max(y)))
@@ -778,7 +780,7 @@ plot(
   xlab = expression(r[p]))
 
 # Sanity check
-stopifnot(identical(names(sort(cor_i))[1:3], c("HBA1", "HBB", "HBA2")))
+stopifnot(identical(names(sort(cor_i))[1:2], c("MT-RNR2", "HBB")))
 ```
 
 ## Summary
@@ -792,8 +794,6 @@ assay(sce, "counts") <- assay(sce, "UMI_counts")
 ```
 
 # Quality control of samples
-
-- Danny and Daniel expect the plate with more PCR will have more genes
 
 ## Defining the quality control metrics
 
@@ -916,7 +916,6 @@ legend(
 ```
 
 The results in Figures \@ref(fig:qcplot) and \@ref(fig:qcbiplot) show that more genes are detected on average for samples on plate `LC476` (median = `r number(median(sce$detected[sce$plate_number == "LC476"]), big.mark = ",")`) compared to plate `LC475` (median = `r number(median(sce$detected[sce$plate_number == "LC475"]), big.mark = ",")`).
-Furthermore, this required slightly fewer UMIs/sample on average for samples on plate `LC476` (median = `r number(median(sce$sum[sce$plate_number == "LC476"]), big.mark = ",")`) compared to plate `LC475` (median = `r number(median(sce$sum[sce$plate_number == "LC475"]), big.mark = ",")`).
 The samples on plate `LC476` do have on average a slightly higher percentage of counts from mitochondrial transcripts (median = `r percent(median(sce$subsets_Mt_percent[sce$plate_number == "LC476"]), scale = 1, accuracy = 0.01)`) compared to plate `LC475` (median = `r percent(median(sce$subsets_Mt_percent[sce$plate_number == "LC475"]), scale = 1, accuracy = 0.01)`), but both are small in absolute terms.
 
 ## Identifying outliers by each metric
@@ -1089,14 +1088,16 @@ This can be used to confirm the reported sex of the sample and to detect sample 
 The female samples have much higher average UMI counts of *XIST* than male samples on, as we would expect, and there are no obvious outliers.
 
 ```{r sex-check, fig.cap = "Expression of XIST by sex."}
+assay(sce, "logCPM") <- edgeR::cpm(counts(sce), log = TRUE)
 plotExpression(
   sce,
   "XIST",
   x = "sex",
-  exprs_values = "counts",
+  exprs_values = "logCPM",
   colour_by = "sex") + 
   scale_fill_manual(values = sex_colours) +
   guides(fill = FALSE)
+assay(sce, "logCPM") <- NULL
 ```
 
 # Examining gene-level metrics
