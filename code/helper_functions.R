@@ -159,11 +159,12 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, groups, sample.col
   groups <- x$samples[[groups]]
   sample.cols <- x$samples[[sample.cols]]
   lcpm <- cpm(x, log = TRUE)
-  # NOTE: This is a no-op when just using LC476.
-  lcpm_rbe <- removeBatchEffect(
+  # NOTE: This is a no-op when just using LC476, so suppress that warning.
+  suppressWarnings(
+    lcpm_rbe <- removeBatchEffect(
     lcpm,
     batch = x$samples$plate_number,
-    design = model.matrix(~0 + group, x$samples))
+    design = model.matrix(~0 + group, x$samples)))
 
   message("Creating CSVs of DEGs")
   for (label in colnames(efit)) {

@@ -1393,7 +1393,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 x_ <- x_lc476[, x_lc476$sample$timepoint == "endline"]
 o <- order(
@@ -1418,7 +1418,7 @@ Tom and Santa also requested the analysis of endline pairwise analyses between t
 This is done by including `sex` in the design matrix. 
 
 ```{r}
-design_lc476_with_sex <- model.matrix(~0 + group + sex_lc476, x_lc476$samples)
+design_lc476_with_sex <- model.matrix(~0 + group + sex, x_lc476$samples)
 colnames(design_lc476_with_sex) <- sub(
   "sex|group", 
   "",
@@ -1460,7 +1460,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 x_ <- x_lc476[, x_lc476$sample$timepoint == "endline"]
 o <- order(
@@ -1497,7 +1497,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 x_ <- x_lc476
 o <- order(
@@ -1537,7 +1537,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 x_ <- x_lc476
 o <- order(
@@ -1599,7 +1599,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
@@ -1658,7 +1658,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
     x_$sample$treatment,
@@ -1717,7 +1717,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
@@ -1776,7 +1776,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
@@ -1835,7 +1835,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
@@ -1894,7 +1894,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
@@ -1955,7 +1955,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
@@ -2014,7 +2014,7 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-```{r, message = FALSE}
+```{r, message = FALSE, results = "hide"}
 # Create outputs
 o <- order(
   x_$sample$treatment,
