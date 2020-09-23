@@ -155,7 +155,15 @@ flattenDF <- function(x, sep = "; ") {
 }
 
 # NOTE: This function is customised for the C084_Hayman_Pasricha project.
-createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.cols) {
+createDEGOutputs <- function(outdir, efit, x, prefix, suffix, groups, sample.cols, annotation_col) {
+  groups <- x$samples[[groups]]
+  sample.cols <- x$samples[[sample.cols]]
+  lcpm <- cpm(x, log = TRUE)
+  # NOTE: This is a no-op when just using LC476.
+  lcpm_rbe <- removeBatchEffect(
+    lcpm,
+    batch = x$samples$plate_number,
+    design = model.matrix(~0 + group, x$samples))
 
   message("Creating CSVs of DEGs")
   for (label in colnames(efit)) {
@@ -163,7 +171,7 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
     gzout <- gzfile(
       description = file.path(
         outdir,
-        paste(c(label, suffix, "DEGs.csv.gz"), collapse = ".")),
+        paste(c(prefix, label, suffix, "DEGs.csv.gz"), collapse = ".")),
       open = "wb")
     write.csv(
       topTable(efit, coef = label, n = Inf),
@@ -194,6 +202,13 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
   }
 
   message("Creating heatmaps")
+  annotation_col <- x$samples[, annotation_col]
+  annotation_col <- endoapply(annotation_col, function(x) {
+    if (is.logical(x)) {
+      x <- as.character(x)
+    }
+    x
+  })
   for (label in colnames(efit)) {
     all_features <- rownames(
       topTable(efit, coef = label, p.value = 0.05, n = Inf))
@@ -204,26 +219,17 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
     # Select top-100
     features <- head(features, 100)
     if (length(features) > 1) {
-      mat <- cpm(x, log = TRUE)[features, ]
-      # NOTE: Row-normalize within each plate_number
-      mat[, x$samples$plate_number == "LC475"] <-
-        mat[, x$samples$plate_number == "LC475"] -
-        rowMeans(mat[, x$samples$plate_number == "LC475"])
-      mat[, x$samples$plate_number == "LC476"] <-
-        mat[, x$samples$plate_number == "LC476"] -
-        rowMeans(mat[, x$samples$plate_number == "LC476"])
+      # Construct data to plot.
+      mat <- lcpm_rbe[features, ]
+      mat <- mat - rowMeans(mat)
+      rownames(annotation_col) <- colnames(mat)
       pheatmap(
-        mat = mat[, o],
+        mat = mat,
         color = hcl.colors(101, "Blue-Red 3"),
         cluster_rows = TRUE,
         cluster_cols = FALSE,
         show_colnames = FALSE,
-        annotation_col = data.frame(
-          plate_number = x$samples$plate_number[o],
-          treatment = x$samples$treatment[o],
-          timepoint = x$samples$timepoint[o],
-          sex = x$samples$sex[o],
-          row.names = colnames(x)[o]),
+        annotation_col = annotation_col,
         annotation_colors = list(
           plate_number = plate_number_colours,
           treatment = treatment_colours,
@@ -231,12 +237,11 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
           sex = sex_colours),
         breaks = seq(-max(abs(mat)), max(abs(mat)), length.out = 101),
         fontsize = 6,
-        gaps_col = cumsum(runLength(Rle(x$samples$plate_number[o]))),
+        gaps_col = cumsum(runLength(Rle(x$samples$plate_number))),
         main = label,
-        filename = here(
-          "output",
-          "DEGs",
-          paste(c(label, suffix, "heatmap.pdf"), collapse = ".")))
+        filename = file.path(
+          outdir,
+          paste(c(prefix, label, suffix, "heatmap.pdf"), collapse = ".")))
     }
   }
 
@@ -254,10 +259,10 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
     colnames(anno) <- sub("\\.GENE", "\\.", colnames(anno))
     Glimma::glMDPlot(
       x = efit[, label],
-      counts = x,
+      counts = lcpm_rbe,
       groups = groups,
       status = decideTests(efit)[, label],
-      transform = TRUE,
+      transform = FALSE,
       main = label,
       anno = anno,
       display.columns = c(
@@ -265,8 +270,8 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
         paste0("ENS.", c("ID", "BIOTYPE", "SEQNAME")),
         paste0("NCBI.", c("ALIAS", "NAME"))),
       sample.cols = sample.cols,
-      path = here("output"),
-      html = paste(c(label, suffix, "md-plot"), collapse = "."),
+      path = outdir,
+      html = paste(c(prefix, label, suffix, "md-plot"), collapse = "."),
       launch = FALSE)
   }
 
@@ -323,7 +328,7 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
     gzout <- gzfile(
       description = file.path(
         outdir,
-        paste(c(label, suffix, "GO.csv.gz"), collapse = ".")),
+        paste(c(prefix, label, suffix, "GO.csv.gz"), collapse = ".")),
       open = "wb")
     write.csv(
       go,
@@ -376,7 +381,7 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, o, groups, sample.
     gzout <- gzfile(
       description = file.path(
         outdir,
-        paste(c(label, suffix, "KEGG.csv.gz"), collapse = ".")),
+        paste(c(prefix, label, suffix, "KEGG.csv.gz"), collapse = ".")),
       open = "wb")
     write.csv(
       kegg,

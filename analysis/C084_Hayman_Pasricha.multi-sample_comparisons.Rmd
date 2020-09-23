@@ -90,6 +90,7 @@ x <- DGEList(
   samples = colData(sce),
   group = factor(paste0(sce$treatment, ".", sce$timepoint)),
   genes = flattenDF(rowData(sce)))
+x_lc476 <- x[, x$samples$plate_number == "LC476"]
 ```
 
 # Data pre-processing
@@ -115,6 +116,9 @@ A CPM value of 1 for a gene equates to having `r number(min(x$samples$lib.size /
 ```{r}
 L <- mean(x$samples$lib.size) * 1e-6
 M <- median(x$samples$lib.size) * 1e-6
+
+L_lc476 <- mean(x_lc476$samples$lib.size) * 1e-6
+M_lc476 <- median(x_lc476$samples$lib.size) * 1e-6
 ```
 
 The log-CPM values will be used for exploratory plots.
@@ -123,8 +127,12 @@ By default, the offset is $2/L$ where 2 is the 'prior count' and $L$ is the aver
 This calculation ensures that any two read counts with identical CPM values will also have identical log-CPM values.
 The prior count avoids taking the logarithm of zero, and also reduces spurious variability for genes with very low counts by shrinking all the inter-sample log-fold-changes towards zero, something that is helpful for exploratory plotting.
 
-For this dataset, the average library size is about `r number(L, accuracy = 0.01)` million, so $L \approx$ `r number(L, accuracy = 0.01)` and the minimum log-CPM value for each sample becomes $log_{2}(CPM + 2/L) \approx$ `r number(log2(2 / L), accuracy = 0.01)`
-In other words, a count of zero for this data maps to a log-CPM value of `r number(log2(2 / L), accuracy = 0.01)` after adding the prior count or offset.
+For this dataset, the average library size is about `r number(L, accuracy = 0.01)` million for the entire dataset (`r number(L_lc476, accuracy = 0.01)` million for plate `LC476`), so $L \approx$ `r number(L, accuracy = 0.01)` (resp. `r number(L_lc476, accuracy = 0.01)`) and the minimum log-CPM value for each sample becomes $log_{2}(CPM + 2/L) \approx$ `r number(log2(2 / L), accuracy = 0.01)` (resp. `r number(log2(2 / L_lc476), accuracy = 0.01)`).
+In other words, a count of zero for this data maps to a log-CPM value of `r number(log2(2 / L), accuracy = 0.01)` (resp. `r number(log2(2 / L_lc476), accuracy = 0.01)`) after adding the prior count or offset.
+
+<aside>
+The values in parenthesis refer to those for just [Using LC476].
+</aside>
 
 ## Removing genes that are lowly expressed
 
@@ -136,8 +144,7 @@ All datasets will include a mix of genes that are expressed and those that are n
 Whilst it is of interest to examine genes that are expressed in one condition but not in another, some genes are unexpressed throughout all samples.
 We have already removed all genes in this dataset that have zero counts across all `r ncol(x)` samples.
 
-Plotting the distribution log-CPM values shows that a sizeable proportion of genes within each sample are either unexpressed or lowly-expressed with log-CPM values that are small (Figure \@ref(fig:lcpm-density)).
-
+Figure \@ref(fig:lcpm-density) plots the distribution log-CPM values and shows that a sizeable proportion of genes within each sample are either unexpressed or lowly-expressed with log-CPM values that are small.
 Genes that do not have a worthwhile number of reads in any sample should be filtered out of the downstream analyses.
 There are several reasons for this.
 From a biological point of view, genes that not expressed at a biologically meaningful level in any condition are not of interest and are therefore best ignored.
@@ -146,59 +153,82 @@ From a statistical point of view, removing low count genes allows the mean-varia
 The `filterByExpr()` function in the `r BiocStyle::Biocpkg("edgeR")` package provides an automatic way to filter genes, while keeping as many genes as possible with worthwhile counts.
 
 ```{r}
-keep.exprs <- filterByExpr(x, group = x$samples$group)
-x <- x[keep.exprs, , keep.lib.sizes = FALSE]
+lcpm <- cpm(x, log = TRUE)
+keep_exprs <- filterByExpr(x, group = x$samples$group)
+x <- x[keep_exprs, , keep.lib.sizes = FALSE]
+
+lcpm_lc476 <- cpm(x_lc476, log = TRUE)
+keep_exprs_lc476 <- filterByExpr(x_lc476, group = x_lc476$samples$group)
+x_lc476 <- x_lc476[keep_exprs_lc476, , keep.lib.sizes = FALSE]
 ```
 
-By default, the function keeps genes with about 10 read counts or more in a minimum number of samples, where the number of samples is chosen according to the minimum group sample size^The actual filtering uses CPM values rather than counts in order to avoid giving preference to samples with large library sizes.].
-For this dataset, the median library size is about `r number(M, accuracy = 0.01)`) million and 10 / `r number(M, accuracy = 0.01)`, big.mark = ",") approx. `r number(10 / M, accuracy = 0.1)`, so the `filterByExpr()` function keeps genes that have a CPM of `r number(10 / M, accuracy = 0.1)` or more in at least `r min(table(x$samples$group))` samples.
-A biologically interesting gene should be expressed in at least `r min(table(x$samples$group))` samples because all the groups have at least `r min(table(x$samples$group))` replicates within each plate.
+By default, `filterByExpr()` keeps genes with about 10 read counts or more in a minimum number of samples, where the number of samples is chosen according to the minimum group sample size^[The actual filtering uses CPM values rather than counts in order to avoid giving preference to samples with large library sizes.].
+For this dataset, the median library size is about `r number(M, accuracy = 0.01)` million (resp. `r number(M_lc476, accuracy = 0.01)` million) and 10 / `r number(M, accuracy = 0.01)` approx. `r number(10 / M, accuracy = 0.1)` (resp. 10 / `r number(M_lc476, accuracy = 0.01)` approx. `r number(10 / M_lc476, accuracy = 0.1)`), so the `filterByExpr()` function keeps genes that have a CPM of `r number(10 / M, accuracy = 0.1)` (resp. `r number(10 / M_lc476, accuracy = 0.1)`) or more in at least `r min(table(x$samples$group))` (resp. `r min(table(x_lc476$samples$group))`) samples.
+A biologically interesting gene should be expressed in at least `r min(table(x$samples$group))` (resp. `r min(table(x_lc476$samples$group))`) samples because all the groups have at least `r min(table(x$samples$group))` (resp. `r min(table(x_lc476$samples$group))`) replicates within each plate.
 The cutoffs used depend on the sequencing depth and on the experimental design. If the library sizes had been larger then a lower CPM cutoff would have been chosen, because larger library sizes provide better resolution to explore more genes at lower expression levels.
 Alternatively, smaller library sizes decrease our ability to explore marginal genes and hence would have led to a higher CPM cutoff.
 
-Using this criterion, the number of genes is reduced to `r number(sum(keep.exprs), big.mark = ",")`, about `r percent(sum(keep.exprs) / length(keep.exprs))` of the number that we started with (panel B of the Figure \@ref(fig:lcpm-density)). 
+<aside>
+The values in parenthesis refer to those for just [Using LC476].
+</aside>
 
-```{r lcpm-density, fig.cap = "The density of log-CPM values for raw pre-filtered data (A) and post-filtered data (B) are shown for 36 randomly chosen samples. Dotted vertical lines mark the log-CPM threshold used in the filtering step."}
-lcpm.cutoff <- log2(10 / M + 2 / L)
+Using this criterion, the number of genes is reduced to `r number(sum(keep_exprs), big.mark = ",")` (resp. `r number(sum(keep_exprs_lc476), big.mark = ",")`), about `r percent(sum(keep_exprs) / length(keep_exprs))` (resp. `r percent(sum(keep_exprs_lc476) / length(keep_exprs_lc476))`) of the number that we started with (right panels of Figure \@ref(fig:lcpm-density)).
+
+<aside>
+The values in parenthesis refer to those for just [Using LC476].
+</aside>
+
+```{r lcpm-density, fig.cap = "The density of log-CPM values for raw pre-filtered data (left) and post-filtered data (right) are shown for 12 randomly chosen samples. Dotted vertical lines mark the log-CPM threshold used in the filtering step.", fig.asp = 1}
+f <- function(lcpm, x, j, samplenames, col, lcpm_cutoff, prefix) {
+  plot(
+    density(lcpm[, j[1]]),
+    col = col[1],
+    lwd = 2,
+    ylim = c(0, 2.6),
+    las = 2,
+    main = "",
+    xlab = "",
+    xlim = c(0, 14))
+  title(main = paste0(prefix, ": Raw data"), xlab = "Log-cpm")
+  abline(v = lcpm_cutoff, lty = 3)
+  for (i in seq_along(j)[-1]) {
+    den <- density(lcpm[, j[i]])
+    lines(den$x, den$y, col = col[i], lwd = 2)
+  }
+  legend("topright", samplenames, text.col = col, bty = "n", cex = 0.5, ncol = 2)
+  
+  lcpm <- cpm(x, log = TRUE)
+  plot(
+    density(lcpm[, 1]),
+    col = col[1],
+    lwd = 2,
+    ylim = c(0, 2.6),
+    las = 2,
+    main = "",
+    xlab = "",
+    xlim = c(0, 14))
+  title(main = paste0(prefix, ": Filtered data"), xlab = "Log-cpm")
+  abline(v = lcpm_cutoff, lty = 3)
+  for (i in seq_along(j)[-1]) {
+    den <- density(lcpm[, j[i]])
+    lines(den$x, den$y, col = col[i], lwd = 2)
+  }
+  legend("topright", samplenames, text.col = col, bty = "n", cex = 0.5, ncol = 2)
+}
+
 set.seed(666)
-nsamples <- 36
+nsamples <- 12
+col <- palette.colors(nsamples, "Polychrome 36")
 j <- sort(sample(ncol(x), nsamples))
 samplenames <- colnames(x)[j]
-col <- palette.colors(nsamples, "Polychrome 36")
+j_lc476 <- sort(sample(ncol(x_lc476), nsamples))
+samplenames_lc476 <- colnames(x)[j_lc476]
+lcpm_cutoff <- log2(10 / M + 2 / L)
+lcpm_cutoff_lc476 <- log2(10 / M_lc476 + 2 / L_lc476)
 
-par(mfrow = c(1, 2))
-plot(
-  density(lcpm[, j[1]]),
-  col = col[1],
-  lwd = 2,
-  ylim = c(0, 2.6),
-  las = 2,
-  main = "",
-  xlab = "")
-title(main = "A. Raw data", xlab = "Log-cpm")
-abline(v = lcpm.cutoff, lty = 3)
-for (i in seq_along(j)[-1]) {
-  den <- density(lcpm[, j[i]])
-  lines(den$x, den$y, col = col[i], lwd = 2)
-}
-legend("topright", samplenames, text.col = col, bty = "n", cex = 0.5, ncol = 4)
-
-lcpm <- cpm(x, log = TRUE)
-plot(
-  density(lcpm[, 1]),
-  col = col[1],
-  lwd = 2,
-  ylim = c(0, 2.6),
-  las = 2,
-  main = "",
-  xlab = "")
-title(main = "B. Filtered data", xlab = "Log-cpm")
-abline(v = lcpm.cutoff, lty = 3)
-for (i in seq_along(j)[-1]) {
-den <- density(lcpm[, j[i]])
-  lines(den$x, den$y, col = col[i], lwd = 2)
-}
-legend("topright", samplenames, text.col = col, bty = "n", cex = 0.5, ncol = 4)
+par(mfrow = c(2, 2))
+f(lcpm, x, j, samplenames, col, lcpm_cutoff, "Both plates")
+f(lcpm_lc476, x_lc476, j_lc476, samplenames_lc476, col, lcpm_cutoff_lc476, "LC476")
 ```
 
 ## Normalising gene expression distributions
@@ -209,33 +239,41 @@ It is assumed that all samples should have a similar range and distribution of e
 Normalisation is required to ensure that the expression distributions of each sample are similar across the entire experiment.
 
 Any plot showing the per sample expression distributions, such as a density or boxplot, is useful in determining whether any samples are dissimilar to others. 
-Distributions of log-CPM values appear to be similar throughout all samples within this dataset (panel B of Figure \@ref(fig:lcpm-density)).
+Distributions of log-CPM values appear to be similar throughout all samples within this dataset (right panels of Figure \@ref(fig:lcpm-density)).
 
 Nonetheless, normalisation by the method of trimmed mean of M-values (TMM) [@robinson2010scaling] is performed using the `calcNormFactors()` function in `r BiocStyle::Biocpkg("edgeR")`.
 The normalisation factors calculated here are used as a scaling factor for the library sizes.
 
 ```{r}
 x <- calcNormFactors(x, method = "TMM")
+x_lc476 <- calcNormFactors(x_lc476, method = "TMM")
 ```
 
-For this dataset the effect of TMM-normalisation is mild, as evident in the magnitude of the scaling factors, which are all relatively close to 1 (median = `r number(median(x$samples$norm.factors), 0.01)`, IQR = `r number(iqr(x$samples$norm.factors), 0.01)`, 5% and 95% quantiles = `r glue::glue_collapse(number(quantile(x$samples$norm.factors, c(0.05, 0.95)), accuracy = 0.01), sep = " and ")`).
+For this dataset the effect of TMM-normalisation is mild, as evident in the magnitude of the scaling factors, which are all relatively close to 1 in both the overall dataset (median = `r number(median(x$samples$norm.factors), 0.01)`, IQR = `r number(iqr(x$samples$norm.factors), 0.01)`, 5% and 95% quantiles = `r glue::glue_collapse(number(quantile(x$samples$norm.factors, c(0.05, 0.95)), accuracy = 0.01), sep = " and ")`) and when restricted to just plate `LC476` (median = `r number(median(x_lc476$samples$norm.factors), 0.01)`, IQR = `r number(iqr(x_lc476$samples$norm.factors), 0.01)`, 5% and 95% quantiles = `r glue::glue_collapse(number(quantile(x_lc476$samples$norm.factors, c(0.05, 0.95)), accuracy = 0.01), sep = " and ")`)
 
-Figure \@ref(fig:lcpm-boxplot) shows the expression distribution of 36 randomly chosen samples for unnormalised and normalised data, where distributions are noticeably different pre-normalisation and are similar post-normalisation.
+Figure \@ref(fig:lcpm-boxplot) shows the expression distribution of 12 randomly chosen samples for unnormalised and normalised data, where distributions are noticeably different pre-normalisation and are similar post-normalisation.
 
-```{r lcpm-boxplot, fig.cap = "Boxplots of log-CPM values showing expression distributions for unnormalised data (A) and normalised data (B) for 36 randomly chosen samples."}
+```{r lcpm-boxplot, fig.cap = "Boxplots of log-CPM values showing expression distributions for unnormalised data (left) and normalised data (right) for 12 randomly chosen samples.", fig.asp = 1}
+g <- function(lcpm, x, j, samplenames, col, prefix) {
+  boxplot(lcpm[, j], las = 2, col = col, main = "", cex = 0.1, xaxt = "n")
+  title(main = paste0(prefix, ": Unnormalised data"), ylab = "Log-cpm")
+  
+  lcpm <- cpm(x, log = TRUE)
+  boxplot(lcpm[, j], las = 2, col = col, main = "", cex = 0.1, xaxt = "n")
+  title(main = paste0(prefix, ": Normalised data"), ylab = "Log-cpm")
+}
+
+col <- palette.colors(nsamples, "Polychrome 36")
+nsamples <- 12
 set.seed(666)
-nsamples <- 36
 j <- sort(sample(ncol(x), nsamples))
 samplenames <- colnames(x)[j]
-col <- palette.colors(nsamples, "Polychrome 36")
+j_lc476 <- sort(sample(ncol(x_lc476), nsamples))
+samplenames_lc476 <- colnames(x_lc476)[j_lc476]
 
-par(mfrow = c(1, 2))
-boxplot(lcpm[, j], las = 2, col = col, main = "", cex = 0.1, xaxt = "n")
-title(main = "A. Unnormalised data", ylab = "Log-cpm")
-
-lcpm <- cpm(x, log = TRUE)
-boxplot(lcpm[, j], las = 2, col = col, main = "", cex = 0.1, xaxt = "n")
-title(main = "B. Normalised data", ylab = "Log-cpm")
+par(mfrow = c(2, 2))
+g(lcpm, x, j, samplenames, col, "Both plates")
+g(lcpm_lc476, x_lc476, j_lc476, samplenames_lc476, col, "LC476")
 ```
 
 ## Unsupervised clustering of samples
@@ -251,122 +289,74 @@ When experimental design involves multiple factors, it is recommended that each 
 If samples cluster by a given factor in any of these dimensions, it suggests that the factor contributes to expression differences and is worth including in the linear modelling.
 On the other hand, factors that show little or no effect may be left out of downstream analysis.
 
-Figure \@ref(fig:mds) shows that samples can be seen to cluster strongly by experimental batch over dimension 1.
+Figure \@ref(fig:mds) shows that samples can be seen to cluster strongly by plate number over dimension 1.
 This dominates any variation due to timepoint or treatment.
 
 ```{r mds, fig.cap = "MDS plots of log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by batch, treatment, and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.", fig.asp = 3 / 2}
+h <- function(lcpm, col_list, location) {
+  for (i in seq_along(col_list)) {
+    plotMDS(lcpm, pch = 16, col = col_list[[i]])
+    legend(
+      location,
+      col = unique(col_list[[i]]),
+      legend = unique(names(col_list[[i]])),
+      pch = 16,
+      title = names(col_list)[i])
+    plotMDS(lcpm, pch = 16, col = col_list[[i]], dim = c(3, 4))
+  }
+}
+
 lcpm <- cpm(x, log = TRUE)
-
+col_list <- list(
+  "plate_number" = plate_number_colours[x$samples$plate_number],
+  "treatment" = treatment_colours[x$samples$treatment],
+  "timepoint" = timepoint_colours[x$samples$timepoint])
 par(mfrow = c(3, 2))
-plotMDS(lcpm, pch = 16, col = plate_number_colours[x$samples$plate_number])
-legend(
-  "bottom",
-  col = plate_number_colours,
-  legend = levels(x$samples$plate_number),
-  pch = 16,
-  title = "batch")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = plate_number_colours[x$samples$plate_number],
-  dim = c(3, 4))
-
-plotMDS(lcpm, pch = 16, col = treatment_colours[x$samples$treatment])
-legend(
-  "bottom",
-  col = treatment_colours,
-  legend = levels(x$samples$treatment),
-  pch = 16,
-  title = "treatment")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = treatment_colours[x$samples$treatment],
-  dim = c(3, 4))
-
-plotMDS(lcpm, pch = 16, col = timepoint_colours[x$samples$timepoint])
-legend(
-  "bottom",
-  col = timepoint_colours,
-  legend = levels(x$samples$timepoint),
-  pch = 16,
-  title = "timepoint")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = timepoint_colours[x$samples$timepoint],
-  dim = c(3, 4))
+h(lcpm, col_list, "bottom")
 ```
 
-Figures \@ref(fig:mds-lc475) and \@ref(fig:mds-lc476) show similar plots but when restricted to batch `LC475` or `LC476`, respectively.
-In each case, we observe some variation along dimension 1 by timepoint but little association with treatment over dimensions $1-4$.
+The `removeBatchEffect()` function in the `r BiocStyle::Biocpkg("limma")` package provides a way to remove the 'plate number effect' (i.e. the batch effect) for the purposes of visualization.
+Figure \@ref(fig:mds-removeBatchEffect) shows that, once the batch effect is accounted for, we observe some clustering along dimension 1 by timepoint but little association with treatment over dimensions $1-4$.
+
+```{r mds-removeBatchEffect, fig.cap = "MDS plots of log-CPM values after removing the batch effect over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by batch, treatment, and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.", fig.asp = 3 / 2}
+lcpm_rbe <- removeBatchEffect(
+  lcpm,
+  batch = x$samples$plate_number,
+  design = model.matrix(~0 + group, x$samples))
+col_list <- list(
+  "plate_number" = plate_number_colours[x$samples$plate_number],
+  "treatment" = treatment_colours[x$samples$treatment],
+  "timepoint" = timepoint_colours[x$samples$timepoint])
+par(mfrow = c(3, 2))
+h(lcpm_rbe, col_list, "topleft")
+```
+
+Figures \@ref(fig:mds-lc475) and \@ref(fig:mds-lc476) show MDS plots of the uncorrected data when restricted to plate `LC475` or `LC476`, respectively.
+In each case, we observe some clustering along dimension 1 by timepoint but little association with treatment over dimensions $1-4$.
 
 ```{r mds-lc475, fig.cap = "MDS plots of `LC475` log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.", fig.asp = 1}
-x_ <- x[, x$samples$plate_number == "LC475"]
-lcpm <- cpm(x_, log = TRUE)
+x_lc475 <- x[, x$samples$plate_number == "LC475"]
+lcpm_lc475 <- cpm(x_lc475, log = TRUE)
 
+col_list <- list(
+  "treatment" = treatment_colours[x_lc475$samples$treatment],
+  "timepoint" = timepoint_colours[x_lc475$samples$timepoint])
 par(mfrow = c(2, 2))
-plotMDS(lcpm, pch = 16, col = treatment_colours[x_$samples$treatment])
-legend(
-  "bottom",
-  col = treatment_colours,
-  legend = levels(x_$samples$treatment),
-  pch = 16,
-  title = "treatment")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = treatment_colours[x_$samples$treatment],
-  dim = c(3, 4))
-
-plotMDS(lcpm, pch = 16, col = timepoint_colours[x_$samples$timepoint])
-legend(
-  "bottom",
-  col = timepoint_colours,
-  legend = levels(x_$samples$timepoint),
-  pch = 16,
-  title = "timepoint")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = timepoint_colours[x_$samples$timepoint],
-  dim = c(3, 4))
+h(lcpm_lc475, col_list, "topleft")
 ```
 
 ```{r mds-lc476, fig.cap = "MDS plots of `LC476` log-CPM values over dimensions 1 and 2 and dimensioned 3 and 4 with samples coloured by treatment and timepoint. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default.", fig.asp = 1}
-x_ <- x[, x$samples$plate_number == "LC476"]
-lcpm <- cpm(x_, log = TRUE)
-
+col_list <- list(
+  "treatment" = treatment_colours[x_lc476$samples$treatment],
+  "timepoint" = timepoint_colours[x_lc476$samples$timepoint])
 par(mfrow = c(2, 2))
-plotMDS(lcpm, pch = 16, col = treatment_colours[x_$samples$treatment])
-legend(
-  "bottom",
-  col = treatment_colours,
-  legend = levels(x_$samples$treatment),
-  pch = 16,
-  title = "treatment")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = treatment_colours[x_$samples$treatment],
-  dim = c(3, 4))
-
-plotMDS(lcpm, pch = 16, col = timepoint_colours[x_$samples$timepoint])
-legend(
-  "bottom",
-  col = timepoint_colours,
-  legend = levels(x_$samples$timepoint),
-  pch = 16,
-  title = "timepoint")
-plotMDS(
-  lcpm,
-  pch = 16,
-  col = timepoint_colours[x_$samples$timepoint],
-  dim = c(3, 4))
+h(lcpm_lc476, col_list, "topleft")
 ```
 
+## Summary
+
 Datasets where samples do not cluster by experimental group may show little or no evidence of differential expression in the downstream analysis.
-This suggests we may observe differential expression between timepoints but not much between treatments.
+The above analysis suggests we may observe differential expression between timepoints, once the batch effect is properly accounted for, but not much between treatments.
 
 # Differential expression analysis
 
@@ -376,11 +366,16 @@ Then there is the variability of repeat measurements made on the same subject, t
 The between-subject variation is always expected to be larger than within-subject, because the latter is adjusted for baseline differences between the subjects.
 Here the comparison between timepoints can be made within subjects, and hence should be more precise than the comparison between arms, which must be made between subjects.
 
+<aside>
+
+</aside>
+
 ## Creating a design matrix and contrasts
 
 In this study, the primary interest is to see which genes are expressed at different levels between the different treatments and timepoints.
 In our analysis, linear models are fitted to the data with the assumption that the underlying data is normally distributed.
-To get started, a design matrix is set up with the `group` (i.e. the combination of `timepoint` and `treatment`) and `plate_number` (i.e. batch) information.
+To get started, a design matrix is set up with the `group` (i.e. the combination of `timepoint` and `treatment`).
+There is also the unwanted variation between plates, which we account for by including a term for `plate_number` in the design matrix when [Using both plates] (this term is not required when just [Using LC476]).
 
 <aside>
 Of secondary interest is to see which genes have their expression associated with additional covariates (e.g., weight for age at endline). We will use different design matrices and contrasts to answer these questions.
@@ -388,51 +383,68 @@ Of secondary interest is to see which genes have their expression associated wit
 
 ```{r}
 design <- model.matrix(~0 + group + plate_number, x$samples)
-colnames(design) <- sub("plate\\_number|group", "", colnames(design))
+colnames(design) <- sub("group|plate\\_number", "", colnames(design))
+
+design_lc476 <- model.matrix(~0 + group, x_lc476$samples)
+colnames(design_lc476) <- sub("group", "", colnames(design_lc476))
 ```
 
 We wish to perform pairwise comparisons between `treatment`s, `timepoint`s, and their interactions, and we set these contrasts up using the `makeContrasts()` function from the `r BiocStyle::Biocpkg("limma")` package.
 
 ```{r}
-contr.matrix <- makeContrasts(
+contr_matrix <- makeContrasts(
   A.endline_vs_A.baseline = A.endline - A.baseline,
   B.endline_vs_B.baseline = B.endline - B.baseline,
   C.endline_vs_C.baseline = C.endline - C.baseline,
   A.endline_vs_B.endline = A.endline - B.endline,
   A.endline_vs_C.endline = A.endline - C.endline,
   B.endline_vs_C.endline = B.endline - C.endline,
-  Adelta_vs_B_delta = (A.endline - A.baseline) - (B.endline - B.baseline),
-  Adelta_vs_C_delta = (A.endline - A.baseline) - (C.endline - C.baseline),
-  Bdelta_vs_C_delta = (B.endline - B.baseline) - (C.endline - C.baseline),
+  A_delta_vs_B_delta = (A.endline - A.baseline) - (B.endline - B.baseline),
+  A_delta_vs_C_delta = (A.endline - A.baseline) - (C.endline - C.baseline),
+  B_delta_vs_C_delta = (B.endline - B.baseline) - (C.endline - C.baseline),
   levels = colnames(design))
-```
 
-A key strength of `r BiocStyle::Biocpkg("limma")`'s linear modelling approach, is the ability accommodate arbitrary experimental complexity.
-Simple designs through to more complicated factorial designs and models with interaction terms can be handled relatively easily.
+contr_matrix_lc476 <- makeContrasts(
+  A.endline_vs_A.baseline = A.endline - A.baseline,
+  B.endline_vs_B.baseline = B.endline - B.baseline,
+  C.endline_vs_C.baseline = C.endline - C.baseline,
+  A.endline_vs_B.endline = A.endline - B.endline,
+  A.endline_vs_C.endline = A.endline - C.endline,
+  B.endline_vs_C.endline = B.endline - C.endline,
+  A_delta_vs_B_delta = (A.endline - A.baseline) - (B.endline - B.baseline),
+  A_delta_vs_C_delta = (A.endline - A.baseline) - (C.endline - C.baseline),
+  B_delta_vs_C_delta = (B.endline - B.baseline) - (C.endline - C.baseline),
+  levels = colnames(design_lc476))
+```
 
 ## Removing heteroscedascity from count data
 
 It has been shown that for RNA-seq count data, the variance is not independent of the mean [@law2014voom] – this is true of raw counts or when transformed to log-CPM values.
 Methods that model counts using a Negative Binomial distribution assume a quadratic mean-variance relationship.
-In `r BiocStyle::Biocpkg("limma")`, linear modelling is carried out on the log-CPM values which are assumed to be normally distributed and the mean-variance relationship is accommodated using precision weights calculated by the `voom()` function.
 
+In `r BiocStyle::Biocpkg("limma")`, linear modelling is carried out on the log-CPM values which are assumed to be normally distributed and the mean-variance relationship is accommodated using precision weights calculated by the `voom()` function.
 `voom()` converts raw counts to log-CPM values by automatically extracting library sizes and normalisation factors.
 
-The mean-variance relationship of log-CPM values for this dataset is shown in the left-hand panel of Figure \@ref(fig:voom).
+<aside>
+We actually use the more general `voomLmFit()` function from the `r BiocStyle::Biocpkg("edgeR")` package rather than `voom()` itself. `voomLmFit()` adapts the limma voom method [@law2014voom] to allow for loss of residual degrees of freedom due to exact zero counts [@lun2017no]. The loss residual df occurs when all the counts in a group are zero or when there are blocking factors that can fit zero counts exactly.
+</aside>
+
+The mean-variance relationship of log-CPM values for this dataset is shown in the left panels of Figure \@ref(fig:voom).
 Typically, the voom-plot shows a decreasing trend between the means and variances resulting from a combination of technical variation in the sequencing experiment and biological variation amongst the replicate samples from different cell populations.
 Experiments with high biological variation usually result in flatter trends, where variance values plateau at high expression values.
 Experiments with low biological variation tend to result in sharp decreasing trends.
 
-Moreover, the voom-plot provides a visual check on the level of filtering performed upstream.
-If filtering of lowly-expressed genes is insufficient, a drop in variance levels can be observed at the low end of the expression scale due to very small counts. 
-If this is observed, one should return to the earlier filtering step and increase the expression threshold applied to the dataset.
-
-```{r voom, fig.cap = "Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panel) and how the trend is removed after voom precision weights are applied to the data (right panel). The plot on the left is created within the `voomLmFit()` function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using `plotSA()` which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curvse show the estimated mean-variance trend used to compute the voom weights (`voomLmFit()` makes a first estimate and refines it for the final estimate). On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line."}
-par(mfrow = c(1, 2))
+```{r voom, fig.cap = "Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panels) and how the trend is removed after voom precision weights are applied to the data (right panels). The top row is when [Using both plates] and the bottom row is when just [Using LC476]. The plot on the left is created within the `voomLmFit()` function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using `plotSA()` which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curvse show the estimated mean-variance trend used to compute the voom weights (`voomLmFit()` makes a first estimate and refines it for the final estimate). On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line and outlier variances are highlighted in red.", fig.asp = 1}
+par(mfrow = c(2, 2))
 vfit <- voomLmFit(x, design, x$samples$id, plot = TRUE)
-vfit <- contrasts.fit(vfit, contrasts = contr.matrix)
-efit <- eBayes(vfit)
-plotSA(efit, main = "Final model: Mean-variance trend")
+vfit <- contrasts.fit(vfit, contrasts = contr_matrix)
+efit <- eBayes(vfit, robust = TRUE)
+plotSA(efit, main = "Both plates: Mean-variance trend")
+
+vfit_lc476 <- voomLmFit(x_lc476, design_lc476, x_lc476$samples$id, plot = TRUE)
+vfit_lc476 <- contrasts.fit(vfit_lc476, contrasts = contr_matrix_lc476)
+efit_lc476 <- eBayes(vfit_lc476)
+plotSA(efit_lc476, main = "LC476: Mean-variance trend")
 ```
 
 ## Fitting linear models for comparisons of interest
@@ -440,13 +452,107 @@ plotSA(efit, main = "Final model: Mean-variance trend")
 Linear modelling in `r BiocStyle::Biocpkg("limma")` fits a separate model to the expression values for each gene.
 Next, empirical Bayes moderation is carried out by borrowing information across all the genes to obtain more precise estimates of gene-wise variability [@smyth2004linear].
 The model's residual variances are plotted against average expression values in Figure \@ref(fig:voom).
-It can be seen from this plot that the variance is no longer dependent on the mean expression level.
 
-# Results
+## Further normaliztion
+
+Figure \@ref(fig:voom) shows that the variance of the expression levels is still somewhat dependent on the mean expression level, which is undesirable.
+This suggests that the TMM normalization is insufficient to adjust for technical differences between samples, which means that subsequent analysis may be biased (e.g., 'differentially expressed genes' may be false positives).
+This dependency is also observed in the MD plots^[An MD-plot, also known as an MA-plot, is a plot of log fold changes (differences) versus average log values (means).] shown in Figures \@ref(fig:md-plot) and \@ref(fig:md-plot-lc476).
+
+```{r md-plot, fig.cap = "MD-plot of model coefficient when using both plates.", fig.asp = 1, results = "hide"}
+par(mfrow = c(3, 3))
+lapply(seq_len(ncol(efit)), function(j) {
+  plotMD(
+    efit,
+    coef = j,
+    xlim = range(efit$Amean),
+    ylim = range(coef(efit)),
+    cex = 0.5)
+})
+```
+
+```{r md-plot-lc476, fig.cap = "MD-plot of model coefficient when just using LC476.", fig.asp = 1, results = "hide"}
+par(mfrow = c(3, 3))
+lapply(seq_len(ncol(efit_lc476)), function(j) {
+  plotMD(
+    efit_lc476,
+    coef = j,
+    xlim = range(efit_lc476$Amean),
+    ylim = range(coef(efit_lc476)),
+    cex = 0.5)
+})
+```
+
+To correct this dependency we require additional, stronger normalization of the data.
+I have opted for quantile normalization, which forces the entire empirical distribution of each sample to be identical[@bolstad2003comparison].
+This approach was suggested to me by Matt Ritchie, Charity Law, and Gordon Smyth^[Email from Gordon (2020-09-20): "The uptick at high expression levels [in the MA plot but also true for the SA plot] does look a bit suspicious. I suggest switching to quantile normalization. It is heavier than TMM but still performs fine and may very well solve the issue. Wei's lab has used quantile normalization for lots of RNA-seq projects without any apparent ill effects."], authors of the the `r BiocStyle::Biocpkg("limma")` and `r BiocStyle::Biocpkg("edgeR")` packages.
+
+Figure \@ref(fig:voom-with-quantile-normalization) shows that by quantile normalizing the data we successfully remove the dependency of the variance on the mean expression level.
+Likewise, the removal of this dependency is also observed in the MD plots shown in Figures \@ref(fig:md-plot-quantile-normalized) and \@ref(fig:md-plot-lc476-quantile-normalized).
+
+```{r voom-with-quantile-normalization, fig.cap = "Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (left panels) and how the trend is removed after voom precision weights are applied to the data and the data are quantile normalized (right panels). The top row is when [Using both plates] and the bottom row is when just [Using LC476]. The plot on the left is created within the `voomLmFit()` function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the average log2 count for each gene. The plot on the right is created using `plotSA()` which plots log2 residual standard deviations against mean log-CPM values. In both plots, each black dot represents a gene. On the left plot, the red curvse show the estimated mean-variance trend used to compute the voom weights (`voomLmFit()` makes a first estimate and refines it for the final estimate). On the right plot, the average log2 residual standard deviation estimated by the empirical Bayes algorithm is marked by a horizontal blue line and outlier variances are highlighted in red.", fig.asp = 1}
+par(mfrow = c(2, 2))
+vfit <- voomLmFit(
+  x,
+  design,
+  x$samples$id,
+  plot = TRUE,
+  normalize.method = "quantile")
+vfit <- contrasts.fit(vfit, contrasts = contr_matrix)
+efit <- eBayes(vfit, robust = TRUE)
+plotSA(efit, main = "Both plates: Mean-variance trend")
+
+vfit_lc476 <- voomLmFit(
+  x_lc476,
+  design_lc476,
+  x_lc476$samples$id,
+  plot = TRUE,
+  normalize.method = "quantile")
+vfit_lc476 <- contrasts.fit(vfit_lc476, contrasts = contr_matrix_lc476)
+efit_lc476 <- eBayes(vfit_lc476, robust = TRUE)
+plotSA(efit_lc476, main = "LC476: Mean-variance trend")
+```
+
+```{r md-plot-quantile-normalized, fig.cap = "MD-plot of model coefficient when using both plates and the data are quantile normalized.", fig.asp = 1, results = "hide"}
+par(mfrow = c(3, 3))
+lapply(seq_len(ncol(efit)), function(j) {
+  plotMD(
+    efit,
+    coef = j,
+    xlim = range(efit$Amean),
+    ylim = range(coef(efit)),
+    cex = 0.5)
+})
+```
+
+```{r md-plot-lc476-quantile-normalized, fig.cap = "MD-plot of model coefficient when just using LC476  and the data are quantile normalized.", fig.asp = 1, results = "hide"}
+par(mfrow = c(3, 3))
+lapply(seq_len(ncol(efit_lc476)), function(j) {
+  plotMD(
+    efit_lc476,
+    coef = j,
+    xlim = range(efit_lc476$Amean),
+    ylim = range(coef(efit_lc476)),
+    cex = 0.5)
+})
+```
+
+# Introduction to results
+
+I provide results [Using both plates] and just [Using LC476].
+The two analyses use the same methodology but [Using both plates] makes full use of all the data generated.
+I recommend the results from [Using both plates], but leave the final choice to you.
+
+# Using both plates
+
+Please see [`output/DEGs/both_plates/`](../output/DEGs/both_plates/) for spreadsheets of these DEG lists, including results of GO and KEGG analyses using the `goana()` and `kegga()` functions from the `r BiocStyle::Biocpkg("limma")` package, as well as heatmaps and Venn diagrams of the DEG lists and interactive `r BiocStyle::Biocpkg("Glimma")` plots of the differential expression results.
+The heatmaps and right panels of the `r BiocStyle::Biocpkg("Glimma")` plots use the batch-corrected log-CPMs.
+Group labels may be abbreviated in the `r BiocStyle::Biocpkg("Glimma")` plots.
+For example, when looking at the effect of `Stunted24`, the group `5.A.F` denotes samples on plate `LC475` (**5**) with treatment `A` (**A**) that were not stunted (**F**ALSE); group `6.B.T` denotes samples on `LC476` (**6**) with treatment `B` (**B**) that were stunted (**T**RUE); etc.
 
 ```{r}
-deg_dir <- here("output", "DEGs")
-dir.create(deg_dir)
+deg_dir <- here("output", "DEGs", "both_plates")
+dir.create(deg_dir, recursive = TRUE)
 ```
 
 ## Figure 1
@@ -468,52 +574,53 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
 # Create outputs
 x_ <- x[, x$sample$timepoint == "endline"]
+o <- order(
+  x_$samples$plate_number,
+  x_$samples$treatment,
+  x_$samples$sex,
+  x_$samples$id)
+x_ <- x_[, o]
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "endline_treatment_comparisons",
+  prefix = "both_plates.endline_treatment_comparisons",
   suffix = NULL,
-  o = order(
-    x_$samples$plate_number,
-    x_$samples$treatment,
-    x_$samples$timepoint,
-    x_$samples$sex,
-    x_$samples$id),
-  groups = paste(
-    sub("LC47", "", x_$samples$plate_number),
-    x_$samples$treatment,
-    sep = "."),
-  sample.cols = x_$samples$treatment_colours)
+  groups = "treatment",
+  sample.cols = "treatment_colours",
+  annotation_col = c("plate_number", "treatment", "sex"))
 ```
 
 #### Adjusted by sex
 
-Tom and Santa also requested the analysis of [Endline pairwise analyses between treatments] be adjusted by sex.
+Tom and Santa also requested the analysis of endline pairwise analyses between treatments be adjusted by sex.
 This is done by including `sex` in the design matrix. 
 
 ```{r}
-design <- model.matrix(~0 + group + sex + plate_number, x$samples)
-colnames(design) <- sub("plate\\_number|sex|group", "", colnames(design))
-vfit_with_sex <- voomLmFit(x, design, x$samples$id, plot = FALSE)
-contr.matrix_with_sex <- makeContrasts(
+design_with_sex <- model.matrix(~0 + group + sex, x$samples)
+colnames(design_with_sex) <- sub("sex|group", "", colnames(design_with_sex))
+contr_matrix_with_sex <- makeContrasts(
   A.endline_vs_A.baseline = A.endline - A.baseline,
   B.endline_vs_B.baseline = B.endline - B.baseline,
   C.endline_vs_C.baseline = C.endline - C.baseline,
   A.endline_vs_B.endline = A.endline - B.endline,
   A.endline_vs_C.endline = A.endline - C.endline,
   B.endline_vs_C.endline = B.endline - C.endline,
-  Adelta_vs_B_delta = (A.endline - A.baseline) - (B.endline - B.baseline),
-  Adelta_vs_C_delta = (A.endline - A.baseline) - (C.endline - C.baseline),
-  Bdelta_vs_C_delta = (B.endline - B.baseline) - (C.endline - C.baseline),
-  levels = colnames(design))
-vfit_with_sex <- contrasts.fit(vfit_with_sex, contrasts = contr.matrix_with_sex)
-efit_with_sex <- eBayes(vfit_with_sex)
+  A_delta_vs_B_delta = (A.endline - A.baseline) - (B.endline - B.baseline),
+  A_delta_vs_C_delta = (A.endline - A.baseline) - (C.endline - C.baseline),
+  B_delta_vs_C_delta = (B.endline - B.baseline) - (C.endline - C.baseline),
+  levels = colnames(design_with_sex))
+vfit_with_sex <- voomLmFit(
+  x,
+  design_with_sex,
+  x$samples$id,
+  plot = FALSE, 
+  normalize.method = "quantile")
+vfit_with_sex <- contrasts.fit(vfit_with_sex, contrasts = contr_matrix_with_sex)
+efit_with_sex <- eBayes(vfit_with_sex, robust = TRUE)
 ```
 
 The results are summarised below.
@@ -533,23 +640,21 @@ knitr::kable(
 ```{r}
 # Create outputs
 x_ <- x[, x$sample$timepoint == "endline"]
+o <- order(
+  x_$samples$plate_number,
+  x_$samples$treatment,
+  x_$samples$sex,
+  x_$samples$id)
+x_ <- x_[, o]
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "endline_treatment_comparisons",
-  suffix = "adjustedby_sex",
-  o = order(
-    x_$samples$plate_number,
-    x_$samples$treatment,
-    x_$samples$timepoint,
-    x_$samples$sex,
-    x_$samples$id),
-  groups = paste(
-    sub("LC47", "", x_$samples$plate_number),
-    x_$samples$treatment,
-    sep = "."),
-  sample.cols = x_$samples$treatment_colours)
+  prefix = "both_plates.endline_treatment_comparisons",
+  suffix = "adjusted_by_sex",
+  groups = "treatment",
+  sample.cols = "treatment_colours",
+  annotation_col = c("plate_number", "treatment", "sex"))
 ```
 
 ## Figure 2
@@ -570,48 +675,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
 # Create outputs
+x_ <- x
+o <- order(
+  x_$samples$plate_number,
+  x_$sample$treatment,
+  x_$sample$timepoint,
+  x_$sample$sex,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$treatment.timepoint <- paste(
+  x_$sample$treatment,
+  x_$samples$timepoint,
+  sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
-  x = x,
-  prefix = "timepoint_comparisons",
+  x = x_,
+  prefix = "both_plates.timepoint_comparisons",
   suffix = NULL,
-  o = order(
-    x$sample$plate_number,
-    x$sample$treatment,
-    x$sample$timepoint,
-    x$sample$sex,
-    x$sample$id),
-  groups = paste(
-    sub("LC47", "", x$sample$plate_number),
-    x$sample$treatment,
-    ifelse(x$sample$timepoint == "baseline", "b", "e"),
-    sep = "."),
-  sample.cols = x$sample$timepoint_colours)
-```
-
-**TODO** Some parallel co-ordinates plots of the genes that change?
-
-```{r}
-ggplot(
-  data = data.frame(
-    x = x$samples$timepoint,
-    y = cpm(x, log = TRUE)["FTH1", ],
-    id = x$samples$id,
-    treatment = x$samples$treatment,
-    timepoint = x$samples$timepoint,
-    plate_number = x$samples$plate_number),
-  aes(x = x, y = y, col = treatment)) +
-  geom_point() +
-  geom_line(aes(group = id)) +
-  facet_grid(plate_number ~ treatment) +
-  scale_colour_manual(values = treatment_colours) +
-  theme_cowplot() + 
-  guides(colour = FALSE)
+  groups = "treatment.timepoint",
+  sample.cols = "treatment_colours",
+  annotation_col = c("plate_number", "treatment", "timepoint", "sex"))
 ```
 
 #### Check for differences in age at enrolment
@@ -678,14 +764,16 @@ x_ <- x[, !is.na(x$samples$HAZ24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + HAZ24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(HAZ24 = HAZ24, levels = colnames(design_))
+contr_matrix_ <- makeContrasts(HAZ24 = HAZ24, levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -698,28 +786,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$HAZ24,
+  x_$sample$Stunted24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+    sub("LC47", "", x_$sample$plate_number),
+    x_$sample$treatment,
+    ifelse(x_$sample$Stunted24, "T", "F"),
+    sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "HAZ24",
+  prefix = "both_plates.HAZ24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$HAZ24,
-    x_$sample$Stunted24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Stunted24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Stunted24)
+  groups = "groups",
+  sample.cols = "Stunted24",
+  annotation_col = c("plate_number", "treatment", "HAZ24", "Stunted24"))
 ```
 
 #### `Stunted24`
@@ -734,16 +823,18 @@ x_ <- x[, !is.na(x$samples$Stunted24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + Stunted24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(
+contr_matrix_ <- makeContrasts(
   Stunted24 = Stunted24TRUE,
   levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -756,28 +847,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+    x_$sample$plate_number,
+    x_$sample$treatment,
+    x_$sample$HAZ24,
+    x_$sample$Stunted24,
+    x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+    sub("LC47", "", x_$sample$plate_number),
+    x_$sample$treatment,
+    ifelse(x_$sample$Stunted24, "T", "F"),
+    sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "Stunted24",
+  prefix = "both_plates.Stunted24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$HAZ24,
-    x_$sample$Stunted24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Stunted24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Stunted24)
+  groups = "groups",
+  sample.cols = "Stunted24",
+  annotation_col = c("plate_number", "treatment", "HAZ24", "Stunted24"))
 ```
 
 ### Gene expression by Weight for Height at endline
@@ -821,14 +913,16 @@ x_ <- x[, !is.na(x$samples$WHZ24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + WHZ24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(WHZ24 = WHZ24, levels = colnames(design_))
+contr_matrix_ <- makeContrasts(WHZ24 = WHZ24, levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -841,28 +935,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$WHZ24,
+  x_$sample$Wasted24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+    sub("LC47", "", x_$sample$plate_number),
+    x_$sample$treatment,
+    ifelse(x_$sample$Wasted24, "T", "F"),
+    sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "WHZ24",
+  prefix = "both_plates.WHZ24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$WHZ24,
-    x_$sample$Wasted24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Wasted24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Wasted24)
+  groups = "groups",
+  sample.cols = "Wasted24",
+  annotation_col = c("plate_number", "treatment", "WHZ24", "Wasted24"))
 ```
 
 #### `Wasted24`
@@ -877,16 +972,18 @@ x_ <- x[, !is.na(x$samples$Wasted24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + Wasted24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(
+contr_matrix_ <- makeContrasts(
   Wasted24 = Wasted24TRUE,
   levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -899,28 +996,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$WHZ24,
+  x_$sample$Wasted24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  sub("LC47", "", x_$sample$plate_number),
+  x_$sample$treatment,
+  ifelse(x_$sample$Wasted24, "T", "F"),
+  sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "Wasted24",
+  prefix = "both_plates.Wasted24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$WHZ24,
-    x_$sample$Wasted24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Wasted24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Wasted24)
+  groups = "groups",
+  sample.cols = "Wasted24",
+  annotation_col = c("plate_number", "treatment", "WHZ24", "Wasted24"))
 ```
 
 ### Gene expression by Weight for Age at endline
@@ -954,7 +1052,7 @@ knitr::kable(
 
 #### `WAZ24`
 
-We subset the data to just the endline `timepoint` and update the original design matrix to add `WAZ24`.
+We subset the data to just the endline `timepoint` and update the original design matrix to add `WAZ24`
 
 Contrasts for association of gene expression with `WAZ24`, accounting for `group` and `plate_number`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
 
@@ -964,14 +1062,16 @@ x_ <- x[, !is.na(x$samples$WAZ24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + WAZ24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(WAZ24 = WAZ24, levels = colnames(design_))
+contr_matrix_ <- makeContrasts(WAZ24 = WAZ24, levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -984,28 +1084,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$WAZ24,
+  x_$sample$Underweight24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  sub("LC47", "", x_$sample$plate_number),
+  x_$sample$treatment,
+  ifelse(x_$sample$Underweight24, "T", "F"),
+  sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "WAZ24",
+  prefix = "both_plates.WAZ24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$WAZ24,
-    x_$sample$Underweight24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Underweight24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Underweight24)
+  groups = "groups",
+  sample.cols = "Underweight24",
+  annotation_col = c("plate_number", "treatment", "WAZ24", "Underweight24"))
 ```
 
 #### `Underweight24`
@@ -1017,21 +1118,21 @@ Contrasts for association of gene expression with `Underweight24`, accounting fo
 ```{r, results = "hide"}
 x_ <- x[, !is.na(x$samples$Underweight24) & x$samples$timepoint == "endline"]
 
-design_ <- model.matrix(
-  ~0 + group + Underweight24 + plate_number,
-  x_$samples)
+design_ <- model.matrix(~0 + group + Underweight24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(
+contr_matrix_ <- makeContrasts(
   Underweight24 = Underweight24TRUE,
   levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1044,94 +1145,95 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$WAZ24,
+  x_$sample$Underweight24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  sub("LC47", "", x_$sample$plate_number),
+  x_$sample$treatment,
+  ifelse(x_$sample$Underweight24, "T", "F"),
+  sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "Underweight24",
+  prefix = "both_plates.Underweight24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$WAZ24,
-    x_$sample$Underweight24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Underweight24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Underweight24)
+  groups = "groups",
+  sample.cols = "Underweight24",
+  annotation_col = c("plate_number", "treatment", "WAZ24", "Underweight24"))
 ```
 
-### Gene expression by age
+<!-- ### Gene expression by age -->
 
-**TODO**: It's not clear what comparison is being requested from Tom's email.
+<!-- **TODO**: It's not clear what comparison is being requested from Tom's email. -->
 
-**TODO**: It's not clear which age column to use (`r glue::glue_collapse(grep("age", colnames(colData(sce)), value = TRUE, ignore.case = TRUE), ", ", last = ", or ")`).
+<!-- **TODO**: It's not clear which age column to use (`r glue::glue_collapse(grep("age", colnames(colData(sce)), value = TRUE, ignore.case = TRUE), ", ", last = ", or ")`). -->
 
-```{r}
-tmp <- unique(
-  x$samples[, c(
-    "id", 
-    "treatment",
-    grep("age", colnames(colData(sce)), value = TRUE, ignore.case = TRUE))])
+<!-- ```{r} -->
+<!-- tmp <- unique( -->
+<!--   x$samples[, c( -->
+<!--     "id",  -->
+<!--     "treatment", -->
+<!--     grep("age", colnames(colData(sce)), value = TRUE, ignore.case = TRUE))]) -->
 
-# Someone with missing age variables
-tmp$id[is.na(tmp$age0)]
-tmp$id[is.na(tmp$age12)]
-tmp$id[is.na(tmp$age24)]
-tmp$id[is.na(tmp$EnrAgeMo)]
+<!-- # Someone with missing age variables -->
+<!-- tmp$id[is.na(tmp$age0)] -->
+<!-- tmp$id[is.na(tmp$age12)] -->
+<!-- tmp$id[is.na(tmp$age24)] -->
+<!-- tmp$id[is.na(tmp$EnrAgeMo)] -->
 
-# EnrAgeMo and age0 are the same variable
-stopifnot(all.equal(sce$EnrAgeMo, sce$age0))
+<!-- # EnrAgeMo and age0 are the same variable -->
+<!-- stopifnot(all.equal(sce$EnrAgeMo, sce$age0)) -->
 
-# age0 density
-p1 <- ggplot(tmp, aes(x = age0, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank())
+<!-- # age0 density -->
+<!-- p1 <- ggplot(tmp, aes(x = age0, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
 
-# age12 density
-p2 <- ggplot(tmp, aes(x = age12, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank())
+<!-- # age12 density -->
+<!-- p2 <- ggplot(tmp, aes(x = age12, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
 
-# age24 density
-p3 <- ggplot(tmp, aes(x = age24, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank())
+<!-- # age24 density -->
+<!-- p3 <- ggplot(tmp, aes(x = age24, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
 
-# EnrAgeMo density
-p4 <- ggplot(tmp, aes(x = EnrAgeMo, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank())
+<!-- # EnrAgeMo density -->
+<!-- p4 <- ggplot(tmp, aes(x = EnrAgeMo, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
 
-((p4| p1) / (p2 | p3)) + plot_layout(guides = "collect")
-```
+<!-- ((p4| p1) / (p2 | p3)) + plot_layout(guides = "collect") -->
+<!-- ``` -->
 
-### Gene expression by sex
+<!-- ### Gene expression by sex -->
 
-**TODO**: It's not clear what comparison is being requested from Tom's email.
+<!-- **TODO**: It's not clear what comparison is being requested from Tom's email. -->
 
 ## Figure 4
 
@@ -1166,9 +1268,9 @@ knitr::kable(
 
 #### `hb24`
 
-We subset the data to just the endline `timepoint` and update the original design matrix to add `hb24`.
+We subset the data to just the endline `timepoint` and update the original design matrix to add `hb24`
 
-Contrasts for association of gene expression with `hb24`, accounting for `group` `plate_number`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+Contrasts for association of gene expression with `hb24`, accounting for `group` and `plate_number`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
 
 ```{r, results = "hide"}
 x_ <- x[, !is.na(x$samples$hb24) & x$samples$timepoint == "endline"]
@@ -1176,14 +1278,16 @@ x_ <- x[, !is.na(x$samples$hb24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + hb24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(hb24 = hb24, levels = colnames(design_))
+contr_matrix_ <- makeContrasts(hb24 = hb24, levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1196,28 +1300,29 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$hb24,
+  x_$sample$Anaemic24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  sub("LC47", "", x_$sample$plate_number),
+  x_$sample$treatment,
+  ifelse(x_$sample$Anaemic24, "T", "F"),
+  sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "hb24",
+  prefix = "both_plates.hb24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$hb24,
-    x_$sample$Anaemic24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Anaemic24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Anaemic24)
+  groups = "groups",
+  sample.cols = "Anaemic24",
+  annotation_col = c("plate_number", "treatment", "hb24", "Anaemic24"))
 ```
 
 #### `Anaemic24`
@@ -1232,16 +1337,18 @@ x_ <- x[, !is.na(x$samples$Anaemic24) & x$samples$timepoint == "endline"]
 design_ <- model.matrix(~0 + group + Anaemic24 + plate_number, x_$samples)
 colnames(design_) <- sub("plate\\_number|group", "", colnames(design_))
 
-contr.matrix_ <- makeContrasts(
+contr_matrix_ <- makeContrasts(
   Anaemic24 = Anaemic24TRUE,
   levels = colnames(design_))
 
-par(mfrow = c(1, 2))
-v_ <- voom(x_, design_, plot = TRUE)
-vfit_ <- lmFit(v_, design_)
-vfit_ <- contrasts.fit(vfit_, contrasts = contr.matrix_)
-efit_ <- eBayes(vfit_)
-plotSA(efit_, main = "Final model: Mean-variance trend")
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1254,165 +1361,203 @@ knitr::kable(
   caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-**TODO** Describe other outputs
-
 ```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$plate_number,
+  x_$sample$treatment,
+  x_$sample$hb24,
+  x_$sample$Anaemic24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  sub("LC47", "", x_$sample$plate_number),
+  x_$sample$treatment,
+  ifelse(x_$sample$Anaemic24, "T", "F"),
+  sep = ".")
 createDEGOutputs(
   outdir = deg_dir,
   efit = efit_,
   x = x_,
-  prefix = "Anaemic24",
+  prefix = "both_plates.Anaemic24",
   suffix = NULL,
-  o = order(
-    x_$sample$plate_number,
-    x_$sample$treatment,
-    x_$sample$timepoint,
-    x_$sample$hb24,
-    x_$sample$Anaemic24,
-    x_$sample$id),
-  groups = paste(
-    sub("LC47", "", x_$sample$plate_number),
-    x_$sample$treatment,
-    ifelse(x_$sample$Anaemic24, "T", "F"),
-    sep = "."),
-  sample.cols = x_$sample$Anaemic24)
+  groups = "groups",
+  sample.cols = "Anaemic24",
+  annotation_col = c("plate_number", "treatment", "hb24", "Anaemic24"))
 ```
 
-### Correlation between recovering from anaemia and being in a treatment group
+<!-- ### Correlation between recovering from anaemia and being in a treatment group -->
 
-**TODO**: It's not clear what comparison is being requested from Tom's email.
+<!-- **TODO**: It's not clear what comparison is being requested from Tom's email. -->
+
+<!-- ```{r} -->
+<!-- tmp <- unique( -->
+<!--   x$samples[, c("id", "treatment", "hb0", "hb24", "Anaemic0", "Anaemic24")]) -->
+
+<!-- library(gghighlight) -->
+<!-- p <- ggplot( -->
+<!--   tidyr::pivot_longer(tmp, c(hb0, hb24), names_to = "timepoint"), -->
+<!--   aes(x = timepoint, y = value, colour = treatment)) + -->
+<!--   geom_point() + -->
+<!--   geom_line(aes(group = id), alpha = 1 / 3, size = 1) +  -->
+<!--   scale_colour_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   facet_grid(~treatment) +  -->
+<!--   guides(colour = FALSE)+ -->
+<!--   ggtitle("Change in haemoglobin from baseline to endline") -->
+<!-- p -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- p1 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     !Anaemic0 & !Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--   ggtitle("Children without anaemia (no change)") -->
+
+<!-- p2 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     Anaemic0 & !Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--     ggtitle("Children that recovered from anaemia") -->
+
+<!-- p3 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     !Anaemic0 & Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--     ggtitle("Children that developed anaemia") -->
+
+<!-- p4 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     Anaemic0 & Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--     ggtitle("Children with anaemia (no change)") -->
+
+<!-- (p1 / p2) | (p3 / p4) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- tmp2 <- tmp[!is.na(tmp$Anaemic0) & !is.na(tmp$Anaemic24), ] -->
+<!-- ``` -->
+
+<!-- Anaemia rates between treatments at baseline. -->
+
+<!-- ```{r} -->
+<!-- table(tmp2$treatment, tmp2$Anaemic0) -->
+<!-- chisq.test(table(tmp2$treatment, tmp2$Anaemic0)) -->
+<!-- ``` -->
+
+<!-- Anaemic rates between treatments at endline -->
+
+<!-- ```{r} -->
+<!-- table(tmp2$treatment, tmp2$Anaemic24) -->
+<!-- chisq.test(table(tmp2$treatment, tmp2$Anaemic24)) -->
+<!-- ``` -->
+
+<!-- Anaemic rates between treatments at baseline and endline -->
+
+<!-- ```{r} -->
+<!-- dplyr::count(tmp2, treatment, Anaemic0, Anaemic24) -->
+<!-- z <- table(tmp2$Anaemic0, tmp2$Anaemic24, tmp2$treatment) -->
+<!-- ``` -->
+
+<!-- Treatment A -->
+
+<!-- ```{r} -->
+<!-- z[, , "A"] -->
+<!-- fisher.test(z[, , "A"]) -->
+<!-- ``` -->
+
+<!-- Treatment B -->
+
+<!-- ```{r} -->
+<!-- z[, , "B"] -->
+<!-- fisher.test(z[, , "B"]) -->
+<!-- ``` -->
+
+<!-- Treatment C -->
+
+<!-- ```{r} -->
+<!-- z[, , "C"] -->
+<!-- fisher.test(z[, , "C"]) -->
+<!-- ``` -->
+
+<!-- Transitions between treatments -->
+
+<!-- ```{r} -->
+<!-- zz <- table(tmp2$treatment, paste0(tmp2$Anaemic0, "->", tmp2$Anaemic24)) -->
+<!-- zz -->
+<!-- chisq.test(zz) -->
+<!-- ``` -->
+
+<!-- Children that recovered from anaemia -->
+
+<!-- ```{r} -->
+<!-- chisq.test(zz[, c("TRUE->FALSE", "TRUE->TRUE")]) -->
+<!-- ``` -->
+
+<!-- Children that developed anaemia -->
+
+<!-- ```{r} -->
+<!-- chisq.test(zz[, c("FALSE->FALSE", "FALSE->TRUE")]) -->
+<!-- ``` -->
+
+<!-- Classifying as 'recovered' or 'not recovered' (including those that never go anaemia). -->
+
+<!-- ```{r} -->
+<!-- zzz <- table( -->
+<!--   tmp2$treatment, -->
+<!--   dplyr::case_when( -->
+<!--     tmp2$Anaemic0 & !tmp2$Anaemic24 ~ "recovered", -->
+<!--     TRUE ~ "not recovered")) -->
+<!-- zzz -->
+<!-- chisq.test(zzz) -->
+<!-- ``` -->
 
 ```{r}
-tmp <- unique(
-  x$samples[, c("id", "treatment", "hb0", "hb24", "Anaemic0", "Anaemic24")])
-
-library(gghighlight)
-p <- ggplot(
-  tidyr::pivot_longer(tmp, c(hb0, hb24), names_to = "timepoint"),
-  aes(x = timepoint, y = value, colour = treatment)) +
-  geom_point() +
-  geom_line(aes(group = id), alpha = 1 / 3, size = 1) + 
-  scale_colour_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  facet_grid(~treatment) + 
-  guides(colour = FALSE)+
-  ggtitle("Change in haemoglobin from baseline to endline")
-p
+knitr::knit_exit()
 ```
+
+# Using LC476
+
+**TODO**: Re-write/remove and replace with analysis for Figures 1 - 4
+
+It was decided to only use data from plate `LC476` for the differential expression analysis.
+The reasoning being that we then don't have to deal with the batch effect associated with the `plate_number`.
+Doing so slightly simplifies the analysis (as we don't have to block on `plate_number`) but may or may not also reduce our power to detect differential expression.
+Briefly, for a given comparison a gene may be:
+
+1. Not DE in either batch. These genes will not be detected as DE in an analysis of either batch or both batches (excepting a small number of false positives).
+2. DE in both batches. These genes will be detected as DE in an analysis of either batch or both batches.
+3. DE in one of the batches but not the other. These genes will be detected as DE in a analysis of the relevant batch but are likely not be detected as DE in an analysis of both batches because the signal is inconsistent between batches.
+4. Weakly but consistently DE in each batch, i.e. not reaching statistical significance in either batch but with a consistent different between batches. These genes *may* be detected as DE in an analysis of both batches.
+
+By only analysing `LC476` is that we lose our ability to detect genes in group 4.
+The number of DE genes will therefore likely be lower than when analysing both batches, but with arguably a simpler interpretation of the results or slighly increased confidence in the results due to the avoidance of the batch effect.
 
 ```{r}
-p1 <- p +
-  geom_line(aes(group = id), alpha = 1, size = 2) + 
-  gghighlight(
-    !Anaemic0 & !Anaemic24,
-    unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3),
-    use_direct_label = FALSE) +
-  ggtitle("Children without anaemia (no change)")
-
-p2 <- p +
-  geom_line(aes(group = id), alpha = 1, size = 2) + 
-  gghighlight(
-    Anaemic0 & !Anaemic24,
-    unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3),
-    use_direct_label = FALSE) +
-    ggtitle("Children that recovered from anaemia")
-
-p3 <- p +
-  geom_line(aes(group = id), alpha = 1, size = 2) + 
-  gghighlight(
-    !Anaemic0 & Anaemic24,
-    unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3),
-    use_direct_label = FALSE) +
-    ggtitle("Children that developed anaemia")
-
-p4 <- p +
-  geom_line(aes(group = id), alpha = 1, size = 2) + 
-  gghighlight(
-    Anaemic0 & Anaemic24,
-    unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3),
-    use_direct_label = FALSE) +
-    ggtitle("Children with anaemia (no change)")
-    
-(p1 / p2) | (p3 / p4)
+x <- x_[, x_$samples$plate_number == "LC476"]
 ```
+
+## Removing genes that are lowly expressed
+
+We repeat the process of filtering out lowly expressed genes with the `filterByExpr()` function in the `r BiocStyle::Biocpkg("edgeR")` package.
 
 ```{r}
-tmp2 <- tmp[!is.na(tmp$Anaemic0) & !is.na(tmp$Anaemic24), ]
+keep.exprs <- filterByExpr(x, group = x$samples$group)
+x_ <- x
+x <- x[keep.exprs, , keep.lib.sizes = FALSE]
 ```
 
-Anaemia rates between treatments at baseline.
-
-```{r}
-table(tmp2$treatment, tmp2$Anaemic0)
-chisq.test(table(tmp2$treatment, tmp2$Anaemic0))
-```
-
-Anaemic rates between treatments at endline
-
-```{r}
-table(tmp2$treatment, tmp2$Anaemic24)
-chisq.test(table(tmp2$treatment, tmp2$Anaemic24))
-```
-
-Anaemic rates between treatments at baseline and endline
-
-```{r}
-dplyr::count(tmp2, treatment, Anaemic0, Anaemic24)
-z <- table(tmp2$Anaemic0, tmp2$Anaemic24, tmp2$treatment)
-```
-
-Treatment A
-
-```{r}
-z[, , "A"]
-fisher.test(z[, , "A"])
-```
-
-Treatment B
-
-```{r}
-z[, , "B"]
-fisher.test(z[, , "B"])
-```
-
-Treatment C
-
-```{r}
-z[, , "C"]
-fisher.test(z[, , "C"])
-```
-
-Transitions between treatments
-
-```{r}
-zz <- table(tmp2$treatment, paste0(tmp2$Anaemic0, "->", tmp2$Anaemic24))
-zz
-chisq.test(zz)
-```
-
-Children that recovered from anaemia
-
-```{r}
-chisq.test(zz[, c("TRUE->FALSE", "TRUE->TRUE")])
-```
-
-Children that developed anaemia
-
-```{r}
-chisq.test(zz[, c("FALSE->FALSE", "FALSE->TRUE")])
-```
-
-Classifying as 'recovered' or 'not recovered' (including those that never go anaemia).
-
-```{r}
-zzz <- table(
-  tmp2$treatment,
-  dplyr::case_when(
-    tmp2$Anaemic0 & !tmp2$Anaemic24 ~ "recovered",
-    TRUE ~ "not recovered"))
-zzz
-chisq.test(zzz)
-```
+This retains `r scales::number(sum(keep.exprs), big.mark = ",")` genes for DE analysis.
 
 # Additional information {.appendix}
 
@@ -1431,3 +1576,7 @@ sessioninfo::session_info()
 ```
 
 </details>
+
+# TODOs
+
+- [ ] Interactions (delta coefficients)
