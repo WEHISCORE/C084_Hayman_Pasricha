@@ -189,9 +189,8 @@ createDEGOutputs <- function(outdir, efit, x, prefix, suffix, groups, sample.col
     dt <- decideTests(efit)
     par(mfrow = c(1, 1))
     pdf(
-      here(
-        "output",
-        "DEGs",
+      file.path(
+        outdir,
         paste(c(prefix, suffix, "Venn_diagram.pdf"), collapse = ".")),
       width = 7,
       height = 7)
