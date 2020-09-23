@@ -15,8 +15,6 @@ navbar:
           href: ../output/scPipe/
         - text: "Differentially expressed genes"
           href: ../output/DEGs/
-        - text: "Glimma plots"
-          href: ../output/glimma-plots/
   right:
     - icon: fa-github
       href: https://github.com/WEHISCORE/C084_Hayman_Pasricha
