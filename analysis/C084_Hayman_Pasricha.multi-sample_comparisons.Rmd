@@ -1565,57 +1565,9 @@ createDEGOutputs(
   annotation_col = c("treatment", "timepoint", "sex"))
 ```
 
-### Check for differences in age at enrolment
-
-```{r}
-tmp <- unique(x_lc476$samples[, c("id", "treatment", "age0")])
-tmp$age0_cut <- cut(tmp$age0, breaks = c(8.5, 10, 11.5))
-```
-
-Figure \@ref(fig:age0-density) shows the distribution of age at enrolment (`age0`) by treatment arm.
-There is no significant difference in `age0` by treatment arm (ANOVA, $P =$ `r number(summary(aov(tmp$age0 ~ tmp$treatment))[[1]][["Pr(>F)"]][1], accuracy = 0.001)`) nor is there an association when `age0` is binned as $(8.5-10]$ or $(10-11.5]$ ($\chi^2$-test $P =$ `r number(chisq.test(tmp$treatment, tmp$age0_cut)$p.value, accuracy = 0.01)`).
-
-```{r age0-density, fig.cap = "Density estimates of `age0` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm."}
-ggplot(tmp, aes(x = age0, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank()) + 
-  geom_vline(xintercept = 10, lty = 2)
-```
-
 ## Figure 3
 
 ### Gene expression by Height for Age at endline
-
-```{r}
-tmp <- unique(x_lc476$samples[, c("id", "treatment", "HAZ24", "Stunted24")])
-```
-
-Figure \@ref(fig:HAZ24-density) shows the distribution of height for age at endline (`HAZ24`) by treatment arm.
-There is `r sum(is.na(tmp$HAZ24))` samples without a `HAZ24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$HAZ24)], sep = ", ", last = ", and ")`).
-
-```{r HAZ24-density, fig.cap = "Density estimates of `HAZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Stunted24`."}
-ggplot(tmp, aes(x = HAZ24, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank()) + 
-  geom_vline(xintercept = -2, lty = 2)
-```
-
-Stunting at endline (`Stunted24`) is defined as `HAZ24` $< -2$.
-The table below classifies subjects by `treatment` and `Stunted24`.
-
-```{r}
-knitr::kable(
-  janitor::tabyl(tmp, Stunted24, treatment) %>%
-    janitor::adorn_title("combined"))
-```
 
 #### `HAZ24`
 
@@ -1735,33 +1687,6 @@ createDEGOutputs(
 
 ### Gene expression by Weight for Height at endline
 
-```{r}
-tmp <- unique(x_lc476$samples[, c("id", "treatment", "WHZ24", "Wasted24")])
-```
-
-Figure \@ref(fig:WHZ24-density) shows the distribution of weight for height at endline (`WHZ24`) by treatment arm.
-There is `r sum(is.na(tmp$WHZ24))` samples without a `WHZ24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$WHZ24)], sep = ", ", last = ", and ")`).
-
-```{r WHZ24-density, fig.cap = "Density estimates of `WHZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Wasted24`."}
-ggplot(tmp, aes(x = WHZ24, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank()) +
-  geom_vline(xintercept = -2, lty = 2)
-```
-
-Wasting at endline (`Wasted24`) is defined as `WHZ24` $< -2$.
-The table below classifies subjects by `treatment` and `Wasted24`.
-
-```{r}
-knitr::kable(
-  janitor::tabyl(tmp, Wasted24, treatment) %>%
-    janitor::adorn_title("combined"))
-```
-
 #### `WHZ24`
 
 We subset the data to just the endline `timepoint` and update the original design matrix to add `WHZ24`.
@@ -1879,33 +1804,6 @@ createDEGOutputs(
 ```
 
 ### Gene expression by Weight for Age at endline
-
-```{r}
-tmp <- unique(x_lc476$samples[, c("id", "treatment", "WAZ24", "Underweight24")])
-```
-
-Figure \@ref(fig:WAZ24-density) shows the distribution of weight for age at endline (`WAZ24`) by treatment arm.
-There is `r sum(is.na(tmp$WAZ24))` samples without a `WAZ24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$WAZ24)], sep = ", ", last = ", and ")`).
-
-```{r WAZ24-density, fig.cap = "Density estimates of `WAZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Underweight24`."}
-ggplot(tmp, aes(x = WAZ24, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank()) +
-  geom_vline(xintercept = -2, lty = 2)
-```
-
-Underweight at endline (`Underweight24`) is defined as `WAZ24` $< -2$.
-The table below classifies subjects by `treatment` and `Underweight24`.
-
-```{r}
-knitr::kable(
-  janitor::tabyl(tmp, Underweight24, treatment) %>%
-    janitor::adorn_title("combined"))
-```
 
 #### `WAZ24`
 
@@ -2026,33 +1924,6 @@ createDEGOutputs(
 ## Figure 4
 
 ### Gene expression by Haemoglobin at endline
-
-```{r}
-tmp <- unique(x_lc476$samples[, c("id", "treatment", "hb24", "Anaemic24")])
-```
-
-Figure \@ref(fig:hb24-density) shows the distribution of weight for age at endline (`hb24`) by treatment arm.
-There is `r sum(is.na(tmp$hb24))` samples without a `hb24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$hb24)], sep = ", ", last = " and ")`).
-
-```{r hb24-density, fig.cap = "Density estimates of `hb24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Anaemic24`."}
-ggplot(tmp, aes(x = hb24, y = ..count.., fill = treatment)) + 
-  geom_density(alpha = 1 / 2) +
-  scale_fill_manual(values = treatment_colours) +
-  theme_minimal_hgrid() +
-  ylab("scaled density") +
-  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
-  theme(axis.line.x = element_blank()) + 
-  geom_vline(xintercept = 11, lty = 2)
-```
-
-Anaemic at endline (`Anaemic24`) is defined as `hb24` $< -2$.
-The table below classifies subjects by `treatment` and `Anaemic24`.
-
-```{r}
-knitr::kable(
-  janitor::tabyl(tmp, Anaemic24, treatment) %>%
-    janitor::adorn_title("combined"))
-```
 
 #### `hb24`
 
