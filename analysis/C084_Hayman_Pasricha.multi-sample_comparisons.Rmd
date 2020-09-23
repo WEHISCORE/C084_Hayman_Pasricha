@@ -1327,36 +1327,973 @@ knitr::knit_exit()
 
 # Using LC476
 
-**TODO**: Re-write/remove and replace with analysis for Figures 1 - 4
-
-It was decided to only use data from plate `LC476` for the differential expression analysis.
-The reasoning being that we then don't have to deal with the batch effect associated with the `plate_number`.
-Doing so slightly simplifies the analysis (as we don't have to block on `plate_number`) but may or may not also reduce our power to detect differential expression.
-Briefly, for a given comparison a gene may be:
-
-1. Not DE in either batch. These genes will not be detected as DE in an analysis of either batch or both batches (excepting a small number of false positives).
-2. DE in both batches. These genes will be detected as DE in an analysis of either batch or both batches.
-3. DE in one of the batches but not the other. These genes will be detected as DE in a analysis of the relevant batch but are likely not be detected as DE in an analysis of both batches because the signal is inconsistent between batches.
-4. Weakly but consistently DE in each batch, i.e. not reaching statistical significance in either batch but with a consistent different between batches. These genes *may* be detected as DE in an analysis of both batches.
-
-By only analysing `LC476` is that we lose our ability to detect genes in group 4.
-The number of DE genes will therefore likely be lower than when analysing both batches, but with arguably a simpler interpretation of the results or slighly increased confidence in the results due to the avoidance of the batch effect.
+Please see [`output/DEGs/LC476/`](../output/DEGs/LC476/) for spreadsheets of these DEG lists, including results of GO and KEGG analyses using the `goana()` and `kegga()` functions from the `r BiocStyle::Biocpkg("limma")` package, as well as heatmaps and Venn diagrams of the DEG lists and interactive `r BiocStyle::Biocpkg("Glimma")` plots of the differential expression results.
+The heatmaps and right panels of the `r BiocStyle::Biocpkg("Glimma")` plots use the batch-corrected log-CPMs.
+Group labels may be abbreviated in the `r BiocStyle::Biocpkg("Glimma")` plots.
+For example, when looking at the effect of `Stunted24`, the group `A.F` denotes samples with treatment `A` (**A**) that were not stunted (**F**ALSE); group `B.T` denotes samples with treatment `B` (**B**) that were stunted (**T**RUE); etc.
 
 ```{r}
-x <- x_[, x_$samples$plate_number == "LC476"]
+deg_dir <- here("output", "DEGs", "LC476")
+dir.create(deg_dir, recursive = TRUE)
 ```
 
-## Removing genes that are lowly expressed
+## Figure 1
 
-We repeat the process of filtering out lowly expressed genes with the `filterByExpr()` function in the `r BiocStyle::Biocpkg("edgeR")` package.
+### Endline pairwise analyses between treatments
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
 
 ```{r}
-keep.exprs <- filterByExpr(x, group = x$samples$group)
-x_ <- x
-x <- x[keep.exprs, , keep.lib.sizes = FALSE]
+efit_ <- efit_lc476[, c(
+    "A.endline_vs_B.endline",
+    "A.endline_vs_C.endline",
+    "B.endline_vs_C.endline")]
+
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
 ```
 
-This retains `r scales::number(sum(keep.exprs), big.mark = ",")` genes for DE analysis.
+```{r, message = FALSE}
+# Create outputs
+x_ <- x_lc476[, x_lc476$sample$timepoint == "endline"]
+o <- order(
+  x_$samples$treatment,
+  x_$samples$sex,
+  x_$samples$id)
+x_ <- x_[, o]
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.endline_treatment_comparisons",
+  suffix = NULL,
+  groups = "treatment",
+  sample.cols = "treatment_colours",
+  annotation_col = c("treatment", "sex"))
+```
+
+#### Adjusted by sex
+
+Tom and Santa also requested the analysis of endline pairwise analyses between treatments be adjusted by sex.
+This is done by including `sex` in the design matrix. 
+
+```{r}
+design_lc476_with_sex <- model.matrix(~0 + group + sex_lc476, x_lc476$samples)
+colnames(design_lc476_with_sex) <- sub(
+  "sex|group", 
+  "",
+  colnames(design_lc476_with_sex))
+contr_matrix_lc476_with_sex <- makeContrasts(
+  A.endline_vs_A.baseline = A.endline - A.baseline,
+  B.endline_vs_B.baseline = B.endline - B.baseline,
+  C.endline_vs_C.baseline = C.endline - C.baseline,
+  A.endline_vs_B.endline = A.endline - B.endline,
+  A.endline_vs_C.endline = A.endline - C.endline,
+  B.endline_vs_C.endline = B.endline - C.endline,
+  A_delta_vs_B_delta = (A.endline - A.baseline) - (B.endline - B.baseline),
+  A_delta_vs_C_delta = (A.endline - A.baseline) - (C.endline - C.baseline),
+  B_delta_vs_C_delta = (B.endline - B.baseline) - (C.endline - C.baseline),
+  levels = colnames(design_lc476_with_sex))
+vfit_lc476_with_sex <- voomLmFit(
+  x_lc476,
+  design_lc476_with_sex,
+  x_lc476$samples$id,
+  plot = FALSE, 
+  normalize.method = "quantile")
+vfit_lc476_with_sex <- contrasts.fit(
+  vfit_lc476_with_sex,
+  contrasts = contr_matrix_lc476_with_sex)
+efit_with_sex <- eBayes(vfit_lc476_with_sex, robust = TRUE)
+```
+
+The results are summarised below.
+
+```{r}
+efit_ <- efit_with_sex[, c(
+    "A.endline_vs_B.endline",
+    "A.endline_vs_C.endline",
+    "B.endline_vs_C.endline")]
+
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r}
+# Create outputs
+x_ <- x_lc476[, x_lc476$sample$timepoint == "endline"]
+o <- order(
+  x_$samples$treatment,
+  x_$samples$sex,
+  x_$samples$id)
+x_ <- x_[, o]
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.endline_treatment_comparisons",
+  suffix = "adjusted_by_sex",
+  groups = "treatment",
+  sample.cols = "treatment_colours",
+  annotation_col = c("treatment", "sex"))
+```
+
+## Figure 2
+
+### Endline vs. baseline
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+efit_ <- efit_lc476[, c(
+    "A.endline_vs_A.baseline",
+    "B.endline_vs_B.baseline",
+    "C.endline_vs_C.baseline")]
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+x_ <- x_lc476
+o <- order(
+  x_$sample$treatment,
+  x_$sample$timepoint,
+  x_$sample$sex,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$treatment.timepoint <- paste(
+  x_$sample$treatment,
+  x_$samples$timepoint,
+  sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.timepoint_comparisons",
+  suffix = NULL,
+  groups = "treatment.timepoint",
+  sample.cols = "treatment_colours",
+  annotation_col = c("treatment", "timepoint", "sex"))
+```
+
+#### Check for differences in age at enrolment
+
+```{r}
+tmp <- unique(x_lc476$samples[, c("id", "treatment", "age0")])
+tmp$age0_cut <- cut(tmp$age0, breaks = c(8.5, 10, 11.5))
+```
+
+Figure \@ref(fig:age0-density) shows the distribution of age at enrolment (`age0`) by treatment arm.
+There is no significant difference in `age0` by treatment arm (ANOVA, $P =$ `r number(summary(aov(tmp$age0 ~ tmp$treatment))[[1]][["Pr(>F)"]][1], accuracy = 0.001)`) nor is there an association when `age0` is binned as $(8.5-10]$ or $(10-11.5]$ ($\chi^2$-test $P =$ `r number(chisq.test(tmp$treatment, tmp$age0_cut)$p.value, accuracy = 0.01)`).
+
+```{r age0-density, fig.cap = "Density estimates of `age0` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm."}
+ggplot(tmp, aes(x = age0, y = ..count.., fill = treatment)) + 
+  geom_density(alpha = 1 / 2) +
+  scale_fill_manual(values = treatment_colours) +
+  theme_minimal_hgrid() +
+  ylab("scaled density") +
+  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
+  theme(axis.line.x = element_blank()) + 
+  geom_vline(xintercept = 10, lty = 2)
+```
+
+## Figure 3
+
+### Gene expression by Height for Age at endline
+
+```{r}
+tmp <- unique(x_lc476$samples[, c("id", "treatment", "HAZ24", "Stunted24")])
+```
+
+Figure \@ref(fig:HAZ24-density) shows the distribution of height for age at endline (`HAZ24`) by treatment arm.
+There is `r sum(is.na(tmp$HAZ24))` samples without a `HAZ24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$HAZ24)], sep = ", ", last = ", and ")`).
+
+```{r HAZ24-density, fig.cap = "Density estimates of `HAZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Stunted24`."}
+ggplot(tmp, aes(x = HAZ24, y = ..count.., fill = treatment)) + 
+  geom_density(alpha = 1 / 2) +
+  scale_fill_manual(values = treatment_colours) +
+  theme_minimal_hgrid() +
+  ylab("scaled density") +
+  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
+  theme(axis.line.x = element_blank()) + 
+  geom_vline(xintercept = -2, lty = 2)
+```
+
+Stunting at endline (`Stunted24`) is defined as `HAZ24` $< -2$.
+The table below classifies subjects by `treatment` and `Stunted24`.
+
+```{r}
+knitr::kable(
+  janitor::tabyl(tmp, Stunted24, treatment) %>%
+    janitor::adorn_title("combined"))
+```
+
+#### `HAZ24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `HAZ24`
+
+Contrasts for association of gene expression with `HAZ24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$HAZ24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + HAZ24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(HAZ24 = HAZ24, levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$HAZ24,
+  x_$sample$Stunted24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+    x_$sample$treatment,
+    ifelse(x_$sample$Stunted24, "T", "F"),
+    sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.HAZ24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Stunted24",
+  annotation_col = c("treatment", "HAZ24", "Stunted24"))
+```
+
+#### `Stunted24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `Stunted24`.
+
+Contrasts for association of gene expression with `Stunted24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$Stunted24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + Stunted24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(
+  Stunted24 = Stunted24TRUE,
+  levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+    x_$sample$treatment,
+    x_$sample$HAZ24,
+    x_$sample$Stunted24,
+    x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+    x_$sample$treatment,
+    ifelse(x_$sample$Stunted24, "T", "F"),
+    sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.Stunted24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Stunted24",
+  annotation_col = c("treatment", "HAZ24", "Stunted24"))
+```
+
+### Gene expression by Weight for Height at endline
+
+```{r}
+tmp <- unique(x_lc476$samples[, c("id", "treatment", "WHZ24", "Wasted24")])
+```
+
+Figure \@ref(fig:WHZ24-density) shows the distribution of weight for height at endline (`WHZ24`) by treatment arm.
+There is `r sum(is.na(tmp$WHZ24))` samples without a `WHZ24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$WHZ24)], sep = ", ", last = ", and ")`).
+
+```{r WHZ24-density, fig.cap = "Density estimates of `WHZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Wasted24`."}
+ggplot(tmp, aes(x = WHZ24, y = ..count.., fill = treatment)) + 
+  geom_density(alpha = 1 / 2) +
+  scale_fill_manual(values = treatment_colours) +
+  theme_minimal_hgrid() +
+  ylab("scaled density") +
+  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
+  theme(axis.line.x = element_blank()) +
+  geom_vline(xintercept = -2, lty = 2)
+```
+
+Wasting at endline (`Wasted24`) is defined as `WHZ24` $< -2$.
+The table below classifies subjects by `treatment` and `Wasted24`.
+
+```{r}
+knitr::kable(
+  janitor::tabyl(tmp, Wasted24, treatment) %>%
+    janitor::adorn_title("combined"))
+```
+
+#### `WHZ24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `WHZ24`.
+
+Contrasts for association of gene expression with `WHZ24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$WHZ24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + WHZ24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(WHZ24 = WHZ24, levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$WHZ24,
+  x_$sample$Wasted24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+    x_$sample$treatment,
+    ifelse(x_$sample$Wasted24, "T", "F"),
+    sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.WHZ24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Wasted24",
+  annotation_col = c("treatment", "WHZ24", "Wasted24"))
+```
+
+#### `Wasted24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `Wasted24`.
+
+Contrasts for association of gene expression with `Wasted24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$Wasted24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + Wasted24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(
+  Wasted24 = Wasted24TRUE,
+  levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$WHZ24,
+  x_$sample$Wasted24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  x_$sample$treatment,
+  ifelse(x_$sample$Wasted24, "T", "F"),
+  sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.Wasted24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Wasted24",
+  annotation_col = c("treatment", "WHZ24", "Wasted24"))
+```
+
+### Gene expression by Weight for Age at endline
+
+```{r}
+tmp <- unique(x_lc476$samples[, c("id", "treatment", "WAZ24", "Underweight24")])
+```
+
+Figure \@ref(fig:WAZ24-density) shows the distribution of weight for age at endline (`WAZ24`) by treatment arm.
+There is `r sum(is.na(tmp$WAZ24))` samples without a `WAZ24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$WAZ24)], sep = ", ", last = ", and ")`).
+
+```{r WAZ24-density, fig.cap = "Density estimates of `WAZ24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Underweight24`."}
+ggplot(tmp, aes(x = WAZ24, y = ..count.., fill = treatment)) + 
+  geom_density(alpha = 1 / 2) +
+  scale_fill_manual(values = treatment_colours) +
+  theme_minimal_hgrid() +
+  ylab("scaled density") +
+  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
+  theme(axis.line.x = element_blank()) +
+  geom_vline(xintercept = -2, lty = 2)
+```
+
+Underweight at endline (`Underweight24`) is defined as `WAZ24` $< -2$.
+The table below classifies subjects by `treatment` and `Underweight24`.
+
+```{r}
+knitr::kable(
+  janitor::tabyl(tmp, Underweight24, treatment) %>%
+    janitor::adorn_title("combined"))
+```
+
+#### `WAZ24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `WAZ24`
+
+Contrasts for association of gene expression with `WAZ24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$WAZ24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + WAZ24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(WAZ24 = WAZ24, levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$WAZ24,
+  x_$sample$Underweight24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  x_$sample$treatment,
+  ifelse(x_$sample$Underweight24, "T", "F"),
+  sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.WAZ24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Underweight24",
+  annotation_col = c("treatment", "WAZ24", "Underweight24"))
+```
+
+#### `Underweight24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `Underweight24`.
+
+Contrasts for association of gene expression with `Underweight24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$Underweight24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + Underweight24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(
+  Underweight24 = Underweight24TRUE,
+  levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$WAZ24,
+  x_$sample$Underweight24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  x_$sample$treatment,
+  ifelse(x_$sample$Underweight24, "T", "F"),
+  sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.Underweight24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Underweight24",
+  annotation_col = c("treatment", "WAZ24", "Underweight24"))
+```
+
+<!-- ### Gene expression by age -->
+
+<!-- **TODO**: It's not clear what comparison is being requested from Tom's email. -->
+
+<!-- **TODO**: It's not clear which age column to use (`r glue::glue_collapse(grep("age", colnames(colData(sce)), value = TRUE, ignore.case = TRUE), ", ", last = ", or ")`). -->
+
+<!-- ```{r} -->
+<!-- tmp <- unique( -->
+<!--   x_lc476$samples[, c( -->
+<!--     "id",  -->
+<!--     "treatment", -->
+<!--     grep("age", colnames(colData(sce)), value = TRUE, ignore.case = TRUE))]) -->
+
+<!-- # Someone with missing age variables -->
+<!-- tmp$id[is.na(tmp$age0)] -->
+<!-- tmp$id[is.na(tmp$age12)] -->
+<!-- tmp$id[is.na(tmp$age24)] -->
+<!-- tmp$id[is.na(tmp$EnrAgeMo)] -->
+
+<!-- # EnrAgeMo and age0 are the same variable -->
+<!-- stopifnot(all.equal(sce$EnrAgeMo, sce$age0)) -->
+
+<!-- # age0 density -->
+<!-- p1 <- ggplot(tmp, aes(x = age0, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
+
+<!-- # age12 density -->
+<!-- p2 <- ggplot(tmp, aes(x = age12, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
+
+<!-- # age24 density -->
+<!-- p3 <- ggplot(tmp, aes(x = age24, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
+
+<!-- # EnrAgeMo density -->
+<!-- p4 <- ggplot(tmp, aes(x = EnrAgeMo, y = ..count.., fill = treatment)) +  -->
+<!--   geom_density(alpha = 1 / 2) + -->
+<!--   scale_fill_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   ylab("scaled density") + -->
+<!--   guides(fill = guide_legend(override.aes = list(linetype = 0))) + -->
+<!--   theme(axis.line.x = element_blank()) -->
+
+<!-- ((p4| p1) / (p2 | p3)) + plot_layout(guides = "collect") -->
+<!-- ``` -->
+
+<!-- ### Gene expression by sex -->
+
+<!-- **TODO**: It's not clear what comparison is being requested from Tom's email. -->
+
+## Figure 4
+
+### Gene expression by Haemoglobin at endline
+
+```{r}
+tmp <- unique(x_lc476$samples[, c("id", "treatment", "hb24", "Anaemic24")])
+```
+
+Figure \@ref(fig:hb24-density) shows the distribution of weight for age at endline (`hb24`) by treatment arm.
+There is `r sum(is.na(tmp$hb24))` samples without a `hb24` measurement (id: `r glue::glue_collapse(tmp$id[is.na(tmp$hb24)], sep = ", ", last = " and ")`).
+
+```{r hb24-density, fig.cap = "Density estimates of `hb24` in each treatment arm. The density curves were scaled such that the area under each curve corresponds to the total number of subjects in each treatment arm. Samples to the left of the vertical dashed line are `Anaemic24`."}
+ggplot(tmp, aes(x = hb24, y = ..count.., fill = treatment)) + 
+  geom_density(alpha = 1 / 2) +
+  scale_fill_manual(values = treatment_colours) +
+  theme_minimal_hgrid() +
+  ylab("scaled density") +
+  guides(fill = guide_legend(override.aes = list(linetype = 0))) +
+  theme(axis.line.x = element_blank()) + 
+  geom_vline(xintercept = 11, lty = 2)
+```
+
+Anaemic at endline (`Anaemic24`) is defined as `hb24` $< -2$.
+The table below classifies subjects by `treatment` and `Anaemic24`.
+
+```{r}
+knitr::kable(
+  janitor::tabyl(tmp, Anaemic24, treatment) %>%
+    janitor::adorn_title("combined"))
+```
+
+#### `hb24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `hb24`
+
+Contrasts for association of gene expression with `hb24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$hb24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + hb24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(hb24 = hb24, levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$hb24,
+  x_$sample$Anaemic24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  x_$sample$treatment,
+  ifelse(x_$sample$Anaemic24, "T", "F"),
+  sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.hb24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Anaemic24",
+  annotation_col = c("treatment", "hb24", "Anaemic24"))
+```
+
+#### `Anaemic24`
+
+We subset the data to just the endline `timepoint` and update the original design matrix to add `Anaemic24`.
+
+Contrasts for association of gene expression with `Anaemic24`, accounting for `group`, are set up in `r BiocStyle::Biocpkg("limma")` using the `makeContrasts()` function.
+
+```{r, results = "hide"}
+x_ <- x_lc476[, !is.na(x_lc476$samples$Anaemic24) & x_lc476$samples$timepoint == "endline"]
+
+design_ <- model.matrix(~0 + group + Anaemic24, x_$samples)
+colnames(design_) <- sub("group", "", colnames(design_))
+
+contr_matrix_ <- makeContrasts(
+  Anaemic24 = Anaemic24TRUE,
+  levels = colnames(design_))
+
+vfit_ <- voomLmFit(
+  x_,
+  design_,
+  x_$samples$id,
+  plot = FALSE,
+  normalize.method = "quantile")
+vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
+efit_ <- eBayes(vfit_, robust = TRUE)
+```
+
+For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
+Significance is defined using an adjusted p-value cutoff that is set at 5% by default.
+
+```{r}
+dt <- decideTests(efit_)
+knitr::kable(
+  t(summary(dt)),
+  caption = "Number of DEGs per comparison. Each row corresponds to a comparison and each column corresponds to the number of downregulated genes (`Down`), the number of non-differentially expressed genes (`NotSig`), the number of upregulated genes (`Up`)")
+```
+
+```{r, message = FALSE}
+# Create outputs
+o <- order(
+  x_$sample$treatment,
+  x_$sample$hb24,
+  x_$sample$Anaemic24,
+  x_$sample$id)
+x_ <- x_[, o]
+x_$samples$groups <- paste(
+  x_$sample$treatment,
+  ifelse(x_$sample$Anaemic24, "T", "F"),
+  sep = ".")
+createDEGOutputs(
+  outdir = deg_dir,
+  efit = efit_,
+  x = x_,
+  prefix = "LC476.Anaemic24",
+  suffix = NULL,
+  groups = "groups",
+  sample.cols = "Anaemic24",
+  annotation_col = c("treatment", "hb24", "Anaemic24"))
+```
+
+<!-- ### Correlation between recovering from anaemia and being in a treatment group -->
+
+<!-- **TODO**: It's not clear what comparison is being requested from Tom's email. -->
+
+<!-- ```{r} -->
+<!-- tmp <- unique( -->
+<!--   x_lc476$samples[, c("id", "treatment", "hb0", "hb24", "Anaemic0", "Anaemic24")]) -->
+
+<!-- library(gghighlight) -->
+<!-- p <- ggplot( -->
+<!--   tidyr::pivot_longer(tmp, c(hb0, hb24), names_to = "timepoint"), -->
+<!--   aes(x = timepoint, y = value, colour = treatment)) + -->
+<!--   geom_point() + -->
+<!--   geom_line(aes(group = id), alpha = 1 / 3, size = 1) +  -->
+<!--   scale_colour_manual(values = treatment_colours) + -->
+<!--   theme_minimal_hgrid() + -->
+<!--   facet_grid(~treatment) +  -->
+<!--   guides(colour = FALSE)+ -->
+<!--   ggtitle("Change in haemoglobin from baseline to endline") -->
+<!-- p -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- p1 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     !Anaemic0 & !Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--   ggtitle("Children without anaemia (no change)") -->
+
+<!-- p2 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     Anaemic0 & !Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--     ggtitle("Children that recovered from anaemia") -->
+
+<!-- p3 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     !Anaemic0 & Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--     ggtitle("Children that developed anaemia") -->
+
+<!-- p4 <- p + -->
+<!--   geom_line(aes(group = id), alpha = 1, size = 2) +  -->
+<!--   gghighlight( -->
+<!--     Anaemic0 & Anaemic24, -->
+<!--     unhighlighted_params = list(size = 1 / 2, alpha = 1 / 3), -->
+<!--     use_direct_label = FALSE) + -->
+<!--     ggtitle("Children with anaemia (no change)") -->
+
+<!-- (p1 / p2) | (p3 / p4) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- tmp2 <- tmp[!is.na(tmp$Anaemic0) & !is.na(tmp$Anaemic24), ] -->
+<!-- ``` -->
+
+<!-- Anaemia rates between treatments at baseline. -->
+
+<!-- ```{r} -->
+<!-- table(tmp2$treatment, tmp2$Anaemic0) -->
+<!-- chisq.test(table(tmp2$treatment, tmp2$Anaemic0)) -->
+<!-- ``` -->
+
+<!-- Anaemic rates between treatments at endline -->
+
+<!-- ```{r} -->
+<!-- table(tmp2$treatment, tmp2$Anaemic24) -->
+<!-- chisq.test(table(tmp2$treatment, tmp2$Anaemic24)) -->
+<!-- ``` -->
+
+<!-- Anaemic rates between treatments at baseline and endline -->
+
+<!-- ```{r} -->
+<!-- dplyr::count(tmp2, treatment, Anaemic0, Anaemic24) -->
+<!-- z <- table(tmp2$Anaemic0, tmp2$Anaemic24, tmp2$treatment) -->
+<!-- ``` -->
+
+<!-- Treatment A -->
+
+<!-- ```{r} -->
+<!-- z[, , "A"] -->
+<!-- fisher.test(z[, , "A"]) -->
+<!-- ``` -->
+
+<!-- Treatment B -->
+
+<!-- ```{r} -->
+<!-- z[, , "B"] -->
+<!-- fisher.test(z[, , "B"]) -->
+<!-- ``` -->
+
+<!-- Treatment C -->
+
+<!-- ```{r} -->
+<!-- z[, , "C"] -->
+<!-- fisher.test(z[, , "C"]) -->
+<!-- ``` -->
+
+<!-- Transitions between treatments -->
+
+<!-- ```{r} -->
+<!-- zz <- table(tmp2$treatment, paste0(tmp2$Anaemic0, "->", tmp2$Anaemic24)) -->
+<!-- zz -->
+<!-- chisq.test(zz) -->
+<!-- ``` -->
+
+<!-- Children that recovered from anaemia -->
+
+<!-- ```{r} -->
+<!-- chisq.test(zz[, c("TRUE->FALSE", "TRUE->TRUE")]) -->
+<!-- ``` -->
+
+<!-- Children that developed anaemia -->
+
+<!-- ```{r} -->
+<!-- chisq.test(zz[, c("FALSE->FALSE", "FALSE->TRUE")]) -->
+<!-- ``` -->
+
+<!-- Classifying as 'recovered' or 'not recovered' (including those that never go anaemia). -->
+
+<!-- ```{r} -->
+<!-- zzz <- table( -->
+<!--   tmp2$treatment, -->
+<!--   dplyr::case_when( -->
+<!--     tmp2$Anaemic0 & !tmp2$Anaemic24 ~ "recovered", -->
+<!--     TRUE ~ "not recovered")) -->
+<!-- zzz -->
+<!-- chisq.test(zzz) -->
+<!-- ``` -->
+
+```{r}
+knitr::knit_exit()
+```
+
 
 # Additional information {.appendix}
 
