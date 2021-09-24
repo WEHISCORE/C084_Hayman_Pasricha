@@ -3,6 +3,7 @@
 # 2021-09-24
 
 library(here)
+library(SingleCellExperiment)
 
 outdir <- here("GEO")
 dir.create(outdir, recursive = TRUE)
