@@ -762,6 +762,28 @@ ggplot(tmp, aes(x = age0, y = ..count.., fill = treatment)) +
   geom_vline(xintercept = 10, lty = 2)
 ```
 
+### PDF version of MA plots
+
+Tom asked for a PDF version of the MA plots; see [`output/paper_figures/both_plates.Figure2.MA-plots.pdf`](../output/paper_figures/both_plates.Figure2.MA-plots.pdf).
+
+```{r}
+dir.create(here("output", "paper_figures"))
+pdf(
+  here("output", "paper_figures", "both_plates.Figure2.MA-plots.pdf"),
+  height = 6,
+  width = 6)
+for (cn in colnames(efit)) {
+  plotMA(
+    efit,
+    coef = cn,
+    xlim = c(4, 12),
+    ylim = c(-1.3, 1.3),
+    status = decideTests(efit)[, cn],
+    main = cn)
+}
+dev.off()
+```
+
 ## Figure 3
 
 ### Gene expression by Height for Age at endline
@@ -815,6 +837,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_haz24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -876,6 +901,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_stunted24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -964,6 +992,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_whz24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1025,6 +1056,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_wasted24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1113,6 +1147,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_waz24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1174,6 +1211,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_underweight24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1209,6 +1249,39 @@ createDEGOutputs(
   groups = "groups",
   sample.cols = "Underweight24",
   annotation_col = c("plate_number", "treatment", "WAZ24", "Underweight24"))
+```
+
+### PDF version of MA plots
+
+Tom asked for a PDF version of the MA plots; see [`output/paper_figures/both_plates.Figure3.MA-plots.pdf`](../output/paper_figures/both_plates.Figure3.MA-plots.pdf).
+
+```{r}
+pdf(
+  here("output", "paper_figures", "both_plates.Figure3.MA-plots.pdf"),
+  height = 6,
+  width = 6)
+plotMA(
+  efit_stunted24,
+  coef = "Stunted24",
+  xlim = c(4, 12),
+  ylim = c(-1.3, 1.3),
+  status = decideTests(efit_stunted24),
+  main = "Stunted24")
+plotMA(
+  efit_wasted24,
+  coef = "Wasted24",
+  xlim = c(4, 12),
+  ylim = c(-1.3, 1.3),
+  status = decideTests(efit_wasted24),
+  main = "Wasted24")
+plotMA(
+  efit_underweight24,
+  coef = "Underweight24",
+  xlim = c(4, 12),
+  ylim = c(-1.3, 1.3),
+  status = decideTests(efit_underweight24),
+  main = "Underweight24")
+dev.off()
 ```
 
 ## Figure 4
@@ -1561,6 +1634,28 @@ createDEGOutputs(
   annotation_col = c("treatment", "timepoint", "sex"))
 ```
 
+### PDF version of MA plots
+
+Tom asked for a PDF version of the MA plots; see [`output/paper_figures/LC476.Figure2.MA-plots.pdf`](../output/paper_figures/LC476.Figure2.MA-plots.pdf).
+
+```{r}
+dir.create(here("output", "paper_figures"))
+pdf(
+  here("output", "paper_figures", "LC476.Figure2.MA-plots.pdf"),
+  height = 6,
+  width = 6)
+for (cn in colnames(efit_lc476)) {
+  plotMA(
+    efit_lc476,
+    coef = cn,
+    xlim = c(4, 12),
+    ylim = c(-1.3, 1.3),
+    status = decideTests(efit_lc476)[, cn],
+    main = cn)
+}
+dev.off()
+```
+
 ## Figure 3
 
 ### Gene expression by Height for Age at endline
@@ -1587,6 +1682,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_haz24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1646,6 +1744,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_stunted24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1705,6 +1806,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_whz24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1764,6 +1868,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_wasted24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1823,6 +1930,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_waz24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1882,6 +1992,9 @@ vfit_ <- voomLmFit(
   normalize.method = "quantile")
 vfit_ <- contrasts.fit(vfit_, contrasts = contr_matrix_)
 efit_ <- eBayes(vfit_, robust = TRUE)
+
+# Needed for PDFs
+efit_underweight24 <- efit_
 ```
 
 For a quick look at differential expression levels, the number of significantly up- and down-regulated genes can be summarised in a table.
@@ -1915,6 +2028,39 @@ createDEGOutputs(
   groups = "groups",
   sample.cols = "Underweight24",
   annotation_col = c("treatment", "WAZ24", "Underweight24"))
+```
+
+### PDF version of MA plots
+
+Tom asked for a PDF version of the MA plots; see [`output/paper_figures/LC476.Figure3.MA-plots.pdf`](../output/paper_figures/LC476.Figure3.MA-plots.pdf).
+
+```{r}
+pdf(
+  here("output", "paper_figures", "LC476.Figure3.MA-plots.pdf"),
+  height = 6,
+  width = 6)
+plotMA(
+  efit_stunted24,
+  coef = "Stunted24",
+  xlim = c(4, 12),
+  ylim = c(-1.3, 1.3),
+  status = decideTests(efit_stunted24),
+  main = "Stunted24")
+plotMA(
+  efit_wasted24,
+  coef = "Wasted24",
+  xlim = c(4, 12),
+  ylim = c(-1.3, 1.3),
+  status = decideTests(efit_wasted24),
+  main = "Wasted24")
+plotMA(
+  efit_underweight24,
+  coef = "Underweight24",
+  xlim = c(4, 12),
+  ylim = c(-1.3, 1.3),
+  status = decideTests(efit_underweight24),
+  main = "Underweight24")
+dev.off()
 ```
 
 ## Figure 4
