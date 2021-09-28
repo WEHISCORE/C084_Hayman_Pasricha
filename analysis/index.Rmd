@@ -15,12 +15,13 @@ bibliography: ref.bib
 
 # Overview
 
-In this analysis, **TODO** Write overview.
+Analysis accompanying paper '**Zinc supplementation with or without additional micronutrients does not affect peripheral blood gene expression or serum cytokine level in Bangladeshi children**'.
+Please see [https://wehiscore.github.io/C084_Hayman_Pasricha/](https://wehiscore.github.io/C084_Hayman_Pasricha/) for the HTML version of this analysis report.
 
-After sequencing, expression was quantified by counting the number of UMIs mapped to each gene using `r BiocStyle::Biocpkg("scPipe")`[@tian2018scpipe].
+After sequencing, expression was quantified by counting the number of UMIs mapped to each gene using `r BiocStyle::Biocpkg("scPipe")`[@tian2018scpipe]; see [`code/scPipe.R`](../code/scPipe.R).
 Count data for all endogeneous genes (GENCODE Release 28 (GRCh38.p12)) and spike-in transcripts (ERCC) are available in this repository.
 
-This analysis is adapted from the [**Orchestrating Single-Cell Analysis with Bioconductor** book](https://osca.bioconductor.org) and the [**RNA-seq analysis is easy as 1-2-3 with limma, Glimma and edgeR** workflow](https://bioconductor.org/packages/RNAseq123/) [@law2016rna].
+This analysis is adapted from the [**RNA-seq analysis is easy as 1-2-3 with limma, Glimma and edgeR** workflow](https://bioconductor.org/packages/RNAseq123/) [@law2016rna].
 
 # Analysis version information  {.appendix}
 
