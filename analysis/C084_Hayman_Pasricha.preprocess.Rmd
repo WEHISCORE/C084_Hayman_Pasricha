@@ -247,6 +247,22 @@ as.data.frame(colData(sce)) %>%
   knitr::kable(caption = "Number of samples per treatment group/timepoint.")
 ```
 
+### Unblinding of treatment groups
+
+Following publication of the [main paper describing this study](https://pubmed.ncbi.nlm.nih.gov/34496174/), we obtained access to the unblinded treatment groups.
+Unblinded treatment groups are as follows:
+
+- Treatment A = 10 mg zinc MNP
+- Treatment B = 10 mg zinc tablet
+- Treatment C = placebo powder
+
+```{r}
+sce$treatment_unblinded <- dplyr::case_when(
+  sce$treatment == "A" ~ "10 mg zinc MNP",
+  sce$treatment == "B" ~ "10 mg zinc tablet",
+  sce$treatment == "C" ~ "placebo powder")
+```
+
 # Failure of `LCE475`
 
 There are 3 batches of samples in total - `r glue::glue_collapse(unique(sce$plate_number), sep = ", ", last = ", and ")` - and these are technical replicates of one another (i.e. each well contains the same sample across all 3 batches).
