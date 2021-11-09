@@ -1,6 +1,6 @@
 # C084_Hayman_Pasricha
 
-Analysis accompanying paper '**Zinc supplementation with or without additional micronutrients does not affect peripheral blood gene expression or serum cytokine level in Bangladeshi children**'.
+Analysis accompanying paper '**[Zinc supplementation with or without additional micronutrients does not affect peripheral blood gene expression or serum cytokine level in Bangladeshi children](https://pubmed.ncbi.nlm.nih.gov/34684517/)**'.
 
 Unblinded treatment groups are as follows:
 
